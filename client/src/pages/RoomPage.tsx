@@ -25,8 +25,6 @@ export function RoomPage() {
   const [liveTime, setLiveTime] = useState(0);
   const [leaving, setLeaving] = useState(false);
 
-  // Always enter a room at the top. This prevents browser scroll restoration
-  // from opening the room halfway down and hiding the header/video metadata.
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
   }, [code]);
@@ -51,7 +49,10 @@ export function RoomPage() {
   const onRoomEnded = useCallback((reason?: string) => navigate('/?notice=' + encodeURIComponent(reason || 'The host ended the watch party.'), { replace: true }), [navigate]);
 
   const socket = useRoomSocket(room?.code, identity?.userId, {
-    onStateChange: (nextRoom) => { setRoom(nextRoom); setLiveTime(nextRoom.currentTime); },
+    onStateChange: (nextRoom) => {
+      setRoom(nextRoom);
+      setLiveTime(nextRoom.currentTime);
+    },
     onChatMessage: (message) => setMessages((prev) => [...prev, message]),
     onChatHistory: setMessages,
     onError: (errorMsg) => { setError(errorMsg); setTimeout(() => setError(null), 5000); },
@@ -60,10 +61,7 @@ export function RoomPage() {
     onSessionReplaced: () => setError('This party is open in another tab. This tab is no longer connected.'),
   });
 
-  const currentParticipant = useMemo(() => room?.participants.find((participant) => participant.userId === identity?.userId), [room, identity?.userId]);
-  // The Room's hostUserId is the single source of truth for the UI. The server
-  // independently authorizes playback events as HOST, so participants cannot
-  // gain playback access by changing client state.
+  // The room owner is the single source of truth for all privileged UI.
   const isHost = Boolean(identity?.userId && room?.hostUserId === identity.userId);
   const canManage = isHost;
   const handlePlay = (time?: number) => { if (isHost) socket.play(time ?? liveTime); };
@@ -89,7 +87,7 @@ export function RoomPage() {
   if (loadError || !room) return <main className="home-page"><div className="home-container"><div className="form-card"><h1>Unable to join room</h1><div className="error-message">{loadError || 'Room not found.'}</div><Link className="btn btn-primary" to="/join">Try another code</Link><Link className="btn btn-text" to="/">Back home</Link></div></div></main>;
 
   return (
-    <div className="room-page">
+    <div className="room-page" style={{ overflow: 'visible' }}>
       <RoomHeader roomName={room.name} roomCode={room.code} isConnected={socket.isConnected} username={identity.username} onExit={handleExit} leaving={leaving} />
       <main className="room-main">
         <div className="player-section">
@@ -100,7 +98,7 @@ export function RoomPage() {
           {isHost && <div className="video-input-section"><label className="label" htmlFor="video-input">Current video</label><div className="video-input-form"><input id="video-input" type="text" value={videoInput} onChange={(event) => setVideoInput(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); handleChangeVideo(); } }} placeholder="Paste a YouTube URL to change video" className="input" /><button onClick={handleChangeVideo} disabled={!videoInput} className="btn btn-secondary">Change Video</button></div></div>}
           {error && <div className="error-banner">{error}</div>}
         </div>
-        <aside className="sidebar">
+        <aside className="sidebar" style={{ position: 'sticky', top: 92, alignSelf: 'start', height: 'calc(100vh - 112px)', minHeight: 0 }}>
           <ParticipantList participants={room.participants} currentUserId={identity.userId} canManage={canManage} onRole={handlePromoteParticipant} onRemove={handleRemoveParticipant} onTransferHost={handleTransferHost} />
           <ChatPanel messages={messages} onSend={socket.sendMessage} />
         </aside>
