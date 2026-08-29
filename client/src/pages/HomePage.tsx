@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { ArrowRight, Link2, MessageCircle, PlayCircle, Sparkles, Users } from 'lucide-react';
+import { ArrowRight, Clapperboard, Link2, MessageCircle, PlayCircle, Sparkles, Users } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 export function HomePage() {
@@ -14,25 +14,22 @@ export function HomePage() {
 
   return (
     <main className="home-page">
-      <div className="home-floaters" aria-hidden="true">
-        <span className="floater f1">😂</span>
-        <span className="floater f2">🍿</span>
-        <span className="floater f3">🔥</span>
-        <span className="floater f4">😭</span>
-        <span className="floater f5">💀</span>
-        <span className="floater f6">❤️</span>
-        <span className="floater f7">🎬</span>
-        <span className="floater f8">✨</span>
-        <span className="cinema-chip c1">▶ MOVIE NIGHT</span>
-        <span className="cinema-chip c2">LIVE • TOGETHER</span>
-        <span className="cinema-chip c3">🎥 SYNC'D</span>
+      <div className="cinema-background" aria-hidden="true">
+        <div className="film-orbit orbit-a"><span>NOW PLAYING</span><b>▶</b></div>
+        <div className="film-orbit orbit-b"><span>WATCH TOGETHER</span><b>✦</b></div>
+        <div className="poster poster-a"><small>FRIDAY</small><strong>MOVIE<br />NIGHT</strong><i>01</i></div>
+        <div className="poster poster-b"><small>ROOM</small><strong>SYNC<br />MODE</strong><i>02</i></div>
+        <div className="poster poster-c"><small>GOOD VIBES</small><strong>PLAY<br />IT.</strong><i>03</i></div>
+        <div className="film-strip strip-a" />
+        <div className="film-strip strip-b" />
+        <span className="spark spark-a">✦</span><span className="spark spark-b">✧</span><span className="spark spark-c">+</span>
       </div>
 
       <div className="home-container">
-        <div className="home-kicker"><Sparkles size={13} /> YOUR INTERNET LIVING ROOM</div>
+        <div className="home-kicker"><Sparkles size={13} /> THE INTERNET'S LIVING ROOM</div>
 
         <div className="home-header">
-          <PlayCircle size={54} className="logo-icon" />
+          <div className="brand-mark"><PlayCircle size={22} /><span>watch<span>party</span></span></div>
           <h1>Watch together.<br /><em>Stay in sync.</em></h1>
           <p className="subtitle">Movie nights, chaos, reactions and questionable opinions — all in one private room.</p>
         </div>
@@ -41,23 +38,24 @@ export function HomePage() {
           <div className="form-card home-cta-card">
             {notice && <div className="error-message">{notice}</div>}
             <button className="btn btn-primary btn-large" onClick={() => navigate('/create')}>
-              Create a watch party <ArrowRight size={19} />
+              <Clapperboard size={18} /> Create a watch party <ArrowRight size={18} />
             </button>
             <div className="divider"><span>or pull up with an invite</span></div>
             <button className="btn btn-secondary btn-large join-screen-btn" onClick={() => navigate('/join')}>
               Join screen <ArrowRight size={18} />
             </button>
+            <div className="cta-note"><span className="live-dot" /> No account. No downloads. Just press play.</div>
           </div>
         </div>
 
         <div className="home-features">
-          <div><Users size={18} /><span>Watch with friends</span></div>
-          <div><Link2 size={18} /><span>One tap invite</span></div>
-          <div><MessageCircle size={18} /><span>Emoji-powered chat</span></div>
+          <div><Users size={17} /><span><b>Friends</b> in the room</span></div>
+          <div><Link2 size={17} /><span><b>One link</b> to invite</span></div>
+          <div><MessageCircle size={17} /><span><b>Live chat</b> + reactions</span></div>
         </div>
 
         <div className="home-vibe-row">
-          <span>🎬 sync'd playback</span><span>•</span><span>🔥 live reactions</span><span>•</span><span>🍿 zero awkward silence</span>
+          <span>SYNCED PLAYBACK</span><i /> <span>LIVE CHAT</span><i /> <span>GOOD VIBES ONLY</span>
         </div>
       </div>
     </main>
