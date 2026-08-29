@@ -14,6 +14,24 @@ interface VideoPlayerProps {
   onError?: (error: string) => void;
 }
 
+function youtubeErrorMessage(code: number) {
+  switch (code) {
+    case 2:
+      return 'YouTube rejected the video ID. Please choose another video.';
+    case 5:
+      return 'YouTube could not play this video in the embedded player.';
+    case 100:
+      return 'This YouTube video is unavailable, private, or has been removed.';
+    case 101:
+    case 150:
+      return 'This video does not allow playback on external websites. Please choose an embeddable YouTube video.';
+    case 153:
+      return 'YouTube could not verify the embedding page. Check the browser connection/referrer settings and reload.';
+    default:
+      return `YouTube player error (${code}).`;
+  }
+}
+
 export function VideoPlayer({
   videoId,
   isPlaying,
@@ -55,10 +73,14 @@ export function VideoPlayer({
     const initPlayer = async () => {
       try {
         setLoading(true);
+        setError(null);
         await loadYouTubeAPI();
         if (destroyed || !containerRef.current) return;
 
-        const YT = (window as unknown as { YT: { Player: new (el: HTMLElement, opts: object) => YouTubePlayerAPI } }).YT;
+        const YT = (window as unknown as {
+          YT: { Player: new (el: HTMLElement, opts: object) => YouTubePlayerAPI };
+        }).YT;
+
         playerRef.current = new YT.Player(containerRef.current, {
           height: '100%',
           width: '100%',
@@ -67,22 +89,35 @@ export function VideoPlayer({
             autoplay: 0,
             controls: 1,
             rel: 0,
-            modestbranding: 1,
             playsinline: 1,
+            enablejsapi: 1,
+            origin: window.location.origin,
           },
           events: {
             onReady: () => {
-              if (destroyed) return;
+              if (destroyed || !playerRef.current) return;
+
               setPlayerReady(true);
               setLoading(false);
-              const duration = playerRef.current?.getDuration?.() || 0;
-              onDurationRef.current?.(duration);
+              setError(null);
+
+              // Explicitly load the current room video after the iframe is ready.
+              // This avoids a race where the API iframe exists but the initial
+              // video has not actually been loaded yet.
+              playerRef.current.loadVideoById(videoId);
+              const duration = playerRef.current.getDuration?.() || 0;
+              if (duration) onDurationRef.current?.(duration);
             },
             onStateChange: (event: { data: number }) => {
-              if (applyingRemoteRef.current) return;
+              if (destroyed || applyingRemoteRef.current) return;
               const player = playerRef.current;
-              if (!player || !canControlRef.current) return;
+              if (!player) return;
+
               const time = player.getCurrentTime?.() || 0;
+              const duration = player.getDuration?.() || 0;
+              if (duration) onDurationRef.current?.(duration);
+
+              if (!canControlRef.current) return;
               if (event.data === YT_PLAYER_STATE.PLAYING) {
                 onPlayRef.current?.(time);
               } else if (event.data === YT_PLAYER_STATE.PAUSED) {
@@ -90,14 +125,22 @@ export function VideoPlayer({
               }
             },
             onError: (event: { data: number }) => {
-              const errorMsg = `YouTube error: ${event.data}`;
-              setError(errorMsg);
-              onErrorRef.current?.(errorMsg);
+              const message = youtubeErrorMessage(event.data);
+              setLoading(false);
+              setError(message);
+              onErrorRef.current?.(message);
+            },
+            onAutoplayBlocked: () => {
+              // Autoplay can be blocked by browser policy. The embedded player
+              // remains usable; the user can press the player play button.
+              setError('Browser blocked automatic playback. Press Play in the YouTube player to continue.');
+              setLoading(false);
             },
           },
         });
       } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Failed to load player';
+        const msg = err instanceof Error ? err.message : 'Failed to load YouTube player';
+        setLoading(false);
         setError(msg);
         onErrorRef.current?.(msg);
       }
@@ -111,57 +154,77 @@ export function VideoPlayer({
       playerRef.current = null;
       setPlayerReady(false);
     };
-    // videoId is applied after ready via cue/load to avoid tearing down the iframe on every change.
+    // The player is intentionally created once. Video changes are handled below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    if (!playerReady || !playerRef.current) return;
+    if (!playerReady || !playerRef.current || !videoId) return;
+
     const currentVideoId = playerRef.current.getVideoData?.()?.video_id;
-    if (currentVideoId !== videoId) {
-      applyingRemoteRef.current = true;
-      playerRef.current.cueVideoById(videoId);
-      setTimeout(() => {
-        applyingRemoteRef.current = false;
-      }, 600);
-    }
+    if (currentVideoId === videoId) return;
+
+    applyingRemoteRef.current = true;
+    setError(null);
+    playerRef.current.loadVideoById(videoId);
+
+    const timer = window.setTimeout(() => {
+      applyingRemoteRef.current = false;
+    }, 800);
+
+    return () => window.clearTimeout(timer);
   }, [videoId, playerReady]);
 
   useEffect(() => {
     if (!playerReady || !playerRef.current) return;
+
     applyingRemoteRef.current = true;
-    const state = playerRef.current.getPlayerState?.();
+    const player = playerRef.current;
+    const state = player.getPlayerState?.();
     const isPlayerPlaying = state === YT_PLAYER_STATE.PLAYING;
+
     if (isPlaying && !isPlayerPlaying) {
-      playerRef.current.playVideo?.();
+      player.playVideo?.();
     } else if (!isPlaying && isPlayerPlaying) {
-      playerRef.current.pauseVideo?.();
+      player.pauseVideo?.();
     }
+
     const timer = window.setTimeout(() => {
       applyingRemoteRef.current = false;
-    }, 500);
+    }, 700);
+
     return () => window.clearTimeout(timer);
   }, [isPlaying, playerReady, videoId]);
 
   useEffect(() => {
     if (!playerReady || !playerRef.current) return;
-    const playerTime = playerRef.current.getCurrentTime?.() || 0;
-    if (Math.abs(playerTime - currentTime) > 1.25) {
+
+    const player = playerRef.current;
+    const playerTime = player.getCurrentTime?.() || 0;
+
+    // Do not fight the local YouTube player every render. Only correct a
+    // meaningful drift from the server state.
+    if (Math.abs(playerTime - currentTime) > 1.5) {
       applyingRemoteRef.current = true;
-      playerRef.current.seekTo?.(currentTime, true);
-      window.setTimeout(() => {
+      player.seekTo?.(Math.max(0, currentTime), true);
+
+      const timer = window.setTimeout(() => {
         applyingRemoteRef.current = false;
-      }, 500);
+      }, 600);
+
+      return () => window.clearTimeout(timer);
     }
   }, [currentTime, playerReady, videoId]);
 
   useEffect(() => {
     if (!playerReady || !playerRef.current) return;
+
     let previousTime = playerRef.current.getCurrentTime?.() || 0;
 
     const interval = window.setInterval(() => {
       const player = playerRef.current;
       if (!player) return;
+
       const time = player.getCurrentTime?.() || 0;
       const duration = player.getDuration?.() || 0;
       onTimeUpdateRef.current?.(time);
@@ -169,6 +232,7 @@ export function VideoPlayer({
 
       const jumped = Math.abs(time - previousTime) > 2;
       previousTime = time;
+
       if (!canControlRef.current || applyingRemoteRef.current || !jumped) return;
       if (Math.abs(time - lastEmittedSeekRef.current) > 1) {
         lastEmittedSeekRef.current = time;
@@ -181,16 +245,31 @@ export function VideoPlayer({
 
   return (
     <div className="video-container" style={{ pointerEvents: canControl ? 'auto' : 'none' }}>
-      {error && <div className="video-error">{error}</div>}
       {loading && (
         <div className="video-loading">
           <div className="spinner" />
+          <span>Loading YouTube video…</span>
         </div>
       )}
+
+      {error && (
+        <div className="video-error" role="alert">
+          <strong>Video unavailable</strong>
+          <span>{error}</span>
+          <a
+            href={`https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Open on YouTube
+          </a>
+        </div>
+      )}
+
       <div
         ref={containerRef}
         className="youtube-frame"
-        style={{ width: '100%', height: '100%', display: loading ? 'none' : 'block' }}
+        style={{ width: '100%', height: '100%', display: 'block' }}
       />
     </div>
   );
