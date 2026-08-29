@@ -40,7 +40,10 @@ export function RoomPage() {
           username: identity.username,
           userId: identity.userId,
         });
-        if (!cancelled) setRoom(joined.room);
+        if (!cancelled) {
+          setRoom(joined.room);
+          setLiveTime(joined.room.currentTime);
+        }
       } catch (caught) {
         if (!cancelled) {
           setLoadError(caught instanceof Error ? caught.message : 'Room not found.');
@@ -61,7 +64,10 @@ export function RoomPage() {
   }, [navigate]);
 
   const socket = useRoomSocket(room?.code, identity?.userId, {
-    onStateChange: setRoom,
+    onStateChange: (nextRoom) => {
+      setRoom(nextRoom);
+      setLiveTime(nextRoom.currentTime);
+    },
     onChatMessage: (message) => setMessages((prev) => [...prev, message]),
     onChatHistory: setMessages,
     onError: (errorMsg) => {
@@ -102,6 +108,8 @@ export function RoomPage() {
     if (canControl) {
       socket.changeVideo(videoId);
       setVideoInput('');
+      setDuration(0);
+      setLiveTime(0);
     }
   };
 
@@ -176,6 +184,9 @@ export function RoomPage() {
               onSeek={handleSeek}
               onTimeUpdate={setLiveTime}
               onDuration={setDuration}
+              onError={(message) => {
+                setError(message);
+              }}
             />
           </div>
 
