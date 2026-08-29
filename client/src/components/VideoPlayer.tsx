@@ -101,10 +101,9 @@ export function VideoPlayer({
               setLoading(false);
               setError(null);
 
-              // Explicitly load the current room video after the iframe is ready.
-              // This avoids a race where the API iframe exists but the initial
-              // video has not actually been loaded yet.
-              playerRef.current.loadVideoById(videoId);
+              // Cue instead of immediately playing. The room's playState is the
+              // source of truth, so playback is started by the sync effect below.
+              playerRef.current.cueVideoById(videoId);
               const duration = playerRef.current.getDuration?.() || 0;
               if (duration) onDurationRef.current?.(duration);
             },
@@ -131,8 +130,6 @@ export function VideoPlayer({
               onErrorRef.current?.(message);
             },
             onAutoplayBlocked: () => {
-              // Autoplay can be blocked by browser policy. The embedded player
-              // remains usable; the user can press the player play button.
               setError('Browser blocked automatic playback. Press Play in the YouTube player to continue.');
               setLoading(false);
             },
@@ -166,7 +163,7 @@ export function VideoPlayer({
 
     applyingRemoteRef.current = true;
     setError(null);
-    playerRef.current.loadVideoById(videoId);
+    playerRef.current.cueVideoById(videoId);
 
     const timer = window.setTimeout(() => {
       applyingRemoteRef.current = false;
@@ -202,8 +199,6 @@ export function VideoPlayer({
     const player = playerRef.current;
     const playerTime = player.getCurrentTime?.() || 0;
 
-    // Do not fight the local YouTube player every render. Only correct a
-    // meaningful drift from the server state.
     if (Math.abs(playerTime - currentTime) > 1.5) {
       applyingRemoteRef.current = true;
       player.seekTo?.(Math.max(0, currentTime), true);
