@@ -1,4 +1,4 @@
-import { Play, Pause, SkipBack, SkipForward, Volume2, AlertCircle } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, AlertCircle } from 'lucide-react';
 
 interface PlaybackControlsProps {
   isPlaying: boolean;
@@ -7,7 +7,6 @@ interface PlaybackControlsProps {
   onPlay?: () => void;
   onPause?: () => void;
   onSeek?: (time: number) => void;
-  onChangeVideo?: () => void;
   canControl: boolean;
 }
 
@@ -18,19 +17,13 @@ export function PlaybackControls({
   onPlay,
   onPause,
   onSeek,
-  onChangeVideo,
   canControl,
 }: PlaybackControlsProps) {
   const formatTime = (seconds: number) => {
-    if (!isFinite(seconds)) return '0:00';
+    if (!isFinite(seconds) || seconds < 0) return '0:00';
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const time = parseFloat(e.target.value);
-    onSeek?.(time);
   };
 
   return (
@@ -38,7 +31,7 @@ export function PlaybackControls({
       {!canControl && (
         <div className="control-notice">
           <AlertCircle size={14} />
-          <span>Only host and moderator can control playback</span>
+          <span>Only the host and moderators can control playback</span>
         </div>
       )}
 
@@ -46,10 +39,11 @@ export function PlaybackControls({
         <input
           type="range"
           min="0"
-          max={duration || 0}
-          value={currentTime || 0}
-          onChange={handleSeek}
-          disabled={!canControl}
+          max={duration > 0 ? duration : 0}
+          step="0.1"
+          value={Math.min(currentTime || 0, duration || 0)}
+          onChange={(event) => onSeek?.(parseFloat(event.target.value))}
+          disabled={!canControl || duration <= 0}
           className="progress-bar"
         />
       </div>
@@ -62,6 +56,7 @@ export function PlaybackControls({
 
       <div className="controls-row">
         <button
+          type="button"
           onClick={() => onSeek?.(Math.max(0, currentTime - 10))}
           disabled={!canControl}
           title="Back 10s"
@@ -71,41 +66,23 @@ export function PlaybackControls({
         </button>
 
         {isPlaying ? (
-          <button
-            onClick={onPause}
-            disabled={!canControl}
-            title="Pause"
-            className="control-btn play-btn"
-          >
+          <button type="button" onClick={onPause} disabled={!canControl} title="Pause" className="control-btn play-btn">
             <Pause size={24} fill="currentColor" />
           </button>
         ) : (
-          <button
-            onClick={onPlay}
-            disabled={!canControl}
-            title="Play"
-            className="control-btn play-btn"
-          >
+          <button type="button" onClick={onPlay} disabled={!canControl} title="Play" className="control-btn play-btn">
             <Play size={24} fill="currentColor" />
           </button>
         )}
 
         <button
-          onClick={() => onSeek?.(Math.min(duration, currentTime + 10))}
+          type="button"
+          onClick={() => onSeek?.(duration > 0 ? Math.min(duration, currentTime + 10) : currentTime + 10)}
           disabled={!canControl}
           title="Forward 10s"
           className="control-btn"
         >
           <SkipForward size={20} />
-        </button>
-
-        <button
-          onClick={onChangeVideo}
-          disabled={!canControl}
-          title="Change video"
-          className="control-btn"
-        >
-          <Volume2 size={20} />
         </button>
       </div>
     </div>

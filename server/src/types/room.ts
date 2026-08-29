@@ -10,7 +10,9 @@ export interface ParticipantDto {
 }
 
 export interface RoomDto {
+  id: string;
   code: string;
+  name: string;
   hostUserId: string;
   videoId: string;
   playState: PlayState;
@@ -18,9 +20,11 @@ export interface RoomDto {
   participants: ParticipantDto[];
 }
 
-export interface CreateRoomResponse {
-  roomId: string;
-  code: string;
+export interface RoomMutationResponse {
+  room: RoomDto;
   userId: string;
-  role: 'HOST';
+  role: Role;
 }
+
+export type CreateRoomResponse = RoomMutationResponse;
+export type JoinRoomResponse = RoomMutationResponse;

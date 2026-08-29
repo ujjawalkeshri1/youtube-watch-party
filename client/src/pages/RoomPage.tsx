@@ -1,6 +1,9 @@
-import { useState } from 'react';
-import { Search } from 'lucide-react';
-import type { Role, Room } from '../types/room';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import type { ChatMessage, Role, Room } from '../types/room';
+import { api } from '../lib/api';
+import { getIdentity } from '../lib/identity';
+import { parseYouTubeVideoId } from '../lib/youtube';
 import { useRoomSocket } from '../hooks/useRoomSocket';
 import { ParticipantList } from '../components/ParticipantList';
 import { ChatPanel } from '../components/ChatPanel';
@@ -8,88 +11,156 @@ import { RoomHeader } from '../components/RoomHeader';
 import { VideoPlayer } from '../components/VideoPlayer';
 import { PlaybackControls } from '../components/PlaybackControls';
 
-
-interface RoomPageProps {
-  room: Room;
-  userId: string;
-  username: string;
-  onRoomUpdate: (room: Room) => void;
-  onExit: () => void;
-}
-
-export function RoomPage({ room, userId, username, onRoomUpdate, onExit }: RoomPageProps) {
-  const [messages, setMessages] = useState<any[]>([]);
+export function RoomPage() {
+  const { code } = useParams();
+  const navigate = useNavigate();
+  const identity = getIdentity();
+  const [room, setRoom] = useState<Room | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [videoInput, setVideoInput] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [duration, setDuration] = useState(0);
+  const [liveTime, setLiveTime] = useState(0);
 
-  const currentParticipant = room.participants.find((p) => p.id === userId);
-  const canControl = currentParticipant?.role === 'HOST' || currentParticipant?.role === 'MODERATOR';
-  const canManage = currentParticipant?.role === 'HOST';
+  useEffect(() => {
+    if (!code) return;
+    if (!identity?.userId || !identity.username) {
+      navigate(`/join/${code.toUpperCase()}`, { replace: true });
+      return;
+    }
 
-  const socket = useRoomSocket(room, userId, {
-    onStateChange: (updatedRoom) => {
-      onRoomUpdate(updatedRoom);
-    },
-    onChatMessage: (message) => {
-      setMessages((prev) => [...prev, message]);
-    },
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const joined = await api.joinRoom(code, {
+          username: identity.username,
+          userId: identity.userId,
+        });
+        if (!cancelled) setRoom(joined.room);
+      } catch (caught) {
+        if (!cancelled) {
+          setLoadError(caught instanceof Error ? caught.message : 'Room not found.');
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [code, identity?.userId, identity?.username, navigate]);
+
+  const onKicked = useCallback(() => {
+    navigate('/?notice=' + encodeURIComponent('You were removed from the room.'), { replace: true });
+  }, [navigate]);
+
+  const socket = useRoomSocket(room?.code, identity?.userId, {
+    onStateChange: setRoom,
+    onChatMessage: (message) => setMessages((prev) => [...prev, message]),
+    onChatHistory: setMessages,
     onError: (errorMsg) => {
       setError(errorMsg);
       setTimeout(() => setError(null), 5000);
     },
+    onKicked,
+    onSessionReplaced: () => {
+      setError('This party is open in another tab. This tab is no longer connected.');
+    },
   });
 
-  // Handle playback events
-  const handlePlay = () => {
-    if (canControl) {
-      socket.play(room.currentTime);
-    }
+  const currentParticipant = useMemo(
+    () => room?.participants.find((participant) => participant.userId === identity?.userId),
+    [room, identity?.userId]
+  );
+  const canControl = currentParticipant?.role === 'HOST' || currentParticipant?.role === 'MODERATOR';
+  const canManage = currentParticipant?.role === 'HOST';
+
+  const handlePlay = (time?: number) => {
+    if (canControl) socket.play(time ?? liveTime);
   };
 
-  const handlePause = () => {
-    if (canControl) {
-      socket.pause(room.currentTime);
-    }
+  const handlePause = (time?: number) => {
+    if (canControl) socket.pause(time ?? liveTime);
   };
 
   const handleSeek = (time: number) => {
-    if (canControl) {
-      socket.seek(time);
-    }
+    if (canControl) socket.seek(time);
   };
 
   const handleChangeVideo = () => {
-    const match = videoInput.match(/(?:v=|youtu\.be\/|embed\/)([\w-]{11})/);
-    if (canControl && match) {
-      socket.changeVideo(match[1]);
+    const videoId = parseYouTubeVideoId(videoInput);
+    if (!videoId) {
+      setError('Invalid YouTube URL.');
+      return;
+    }
+    if (canControl) {
+      socket.changeVideo(videoId);
       setVideoInput('');
     }
   };
 
-  // Handle role management
   const handlePromoteParticipant = (participantId: string, newRole: Role) => {
-    if (canManage) {
-      socket.assignRole(participantId, newRole);
-    }
+    if (canManage) socket.assignRole(participantId, newRole);
   };
 
   const handleRemoveParticipant = (participantId: string) => {
-    if (canManage) {
-      socket.removeParticipant(participantId);
-    }
+    if (canManage) socket.removeParticipant(participantId);
   };
 
-  const handleSendMessage = (text: string) => {
-    socket.sendMessage(text);
+  const handleTransferHost = (participantId: string) => {
+    if (canManage) socket.transferHost(participantId);
   };
+
+  const handleExit = () => {
+    socket.leaveRoom();
+    navigate('/');
+  };
+
+  if (!identity?.userId) return null;
+
+  if (loading) {
+    return (
+      <main className="home-page">
+        <div className="home-container">
+          <p>Loading room...</p>
+        </div>
+      </main>
+    );
+  }
+
+  if (loadError || !room) {
+    return (
+      <main className="home-page">
+        <div className="home-container">
+          <div className="form-card">
+            <h1>Unable to join room</h1>
+            <div className="error-message">{loadError || 'Room not found.'}</div>
+            <Link className="btn btn-primary" to="/join">
+              Try another code
+            </Link>
+            <Link className="btn btn-text" to="/">
+              Back home
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <div className="room-page">
       <RoomHeader
+        roomName={room.name}
         roomCode={room.code}
         isConnected={socket.isConnected}
-        username={username}
-        onExit={onExit}
+        username={identity.username}
+        onExit={handleExit}
       />
 
       <main className="room-main">
@@ -99,52 +170,47 @@ export function RoomPage({ room, userId, username, onRoomUpdate, onExit }: RoomP
               videoId={room.videoId}
               isPlaying={room.playState === 'playing'}
               currentTime={room.currentTime}
+              canControl={canControl}
               onPlay={handlePlay}
               onPause={handlePause}
               onSeek={handleSeek}
-              canControl={canControl}
+              onTimeUpdate={setLiveTime}
+              onDuration={setDuration}
             />
           </div>
 
           <PlaybackControls
             isPlaying={room.playState === 'playing'}
-            currentTime={room.currentTime}
-            duration={0}
-            onPlay={handlePlay}
-            onPause={handlePause}
+            currentTime={liveTime || room.currentTime}
+            duration={duration}
+            onPlay={() => handlePlay()}
+            onPause={() => handlePause()}
             onSeek={handleSeek}
-            onChangeVideo={() => {
-              const input = document.getElementById('video-input') as HTMLInputElement;
-              if (input) input.focus();
-            }}
             canControl={canControl}
           />
 
           {canControl && (
             <div className="video-input-section">
+              <label className="label" htmlFor="video-input">
+                Current video
+              </label>
               <div className="video-input-form">
-                <Search size={18} className="input-icon" />
                 <input
                   id="video-input"
                   type="text"
                   value={videoInput}
-                  onChange={(e) => setVideoInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
+                  onChange={(event) => setVideoInput(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
                       handleChangeVideo();
                     }
                   }}
-                  placeholder="Paste YouTube link..."
+                  placeholder="Paste a YouTube URL to change video"
                   className="input"
-                  disabled={!canControl}
                 />
-                <button
-                  onClick={handleChangeVideo}
-                  disabled={!canControl || !videoInput}
-                  className="btn btn-secondary"
-                >
-                  Change
+                <button onClick={handleChangeVideo} disabled={!videoInput} className="btn btn-secondary">
+                  Change Video
                 </button>
               </div>
             </div>
@@ -156,13 +222,14 @@ export function RoomPage({ room, userId, username, onRoomUpdate, onExit }: RoomP
         <aside className="sidebar">
           <ParticipantList
             participants={room.participants}
-            currentUserId={userId}
+            currentUserId={identity.userId}
             canManage={canManage}
             onRole={handlePromoteParticipant}
             onRemove={handleRemoveParticipant}
+            onTransferHost={handleTransferHost}
           />
 
-          <ChatPanel messages={messages} onSend={handleSendMessage} />
+          <ChatPanel messages={messages} onSend={socket.sendMessage} />
         </aside>
       </main>
     </div>

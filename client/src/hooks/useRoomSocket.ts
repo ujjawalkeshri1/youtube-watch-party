@@ -1,31 +1,35 @@
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import { API_URL } from '../lib/api';
+import { getIdentity } from '../lib/identity';
 import type { ChatMessage, Room, Role } from '../types/room';
 
 interface SocketEvents {
   onStateChange: (room: Room) => void;
   onChatMessage: (message: ChatMessage) => void;
+  onChatHistory?: (messages: ChatMessage[]) => void;
   onError: (error: string) => void;
-  onConnected?: () => void;
-  onDisconnected?: () => void;
+  onKicked?: () => void;
+  onSessionReplaced?: () => void;
 }
 
 export function useRoomSocket(
-  room: Room | null,
+  roomCode: string | undefined,
   userId: string | undefined,
   events: SocketEvents
 ) {
   const socketRef = useRef<Socket | null>(null);
+  const eventsRef = useRef(events);
+  eventsRef.current = events;
   const [isConnected, setIsConnected] = useState(false);
+  const userIdRef = useRef(userId);
+  userIdRef.current = userId;
 
   useEffect(() => {
-    if (!room || !userId) return;
+    if (!roomCode || !userId) return;
 
     const socket = io(API_URL, {
-      query: {
-        userId,
-      },
+      query: { userId },
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
@@ -34,130 +38,79 @@ export function useRoomSocket(
 
     socketRef.current = socket;
 
+    const join = () => {
+      const identity = getIdentity();
+      socket.emit('join_room', {
+        roomCode,
+        userId,
+        username: identity?.username || 'Guest',
+      });
+    };
+
     socket.on('connect', () => {
       setIsConnected(true);
-      socket.emit('join_room', {
-        roomCode: room.code,
-        userId,
-        username: localStorage.getItem('watch-party-user')
-          ? JSON.parse(localStorage.getItem('watch-party-user') || '{}')?.username || 'Guest'
-          : 'Guest',
-      });
-      events.onConnected?.();
+      join();
     });
 
     socket.on('disconnect', () => {
       setIsConnected(false);
-      events.onDisconnected?.();
     });
 
-    socket.on('sync_state', (data: Room) => {
-      events.onStateChange(data);
+    socket.on('sync_state', (data: Room) => eventsRef.current.onStateChange(data));
+    socket.on('user_joined', (data: Room) => eventsRef.current.onStateChange(data));
+    socket.on('user_left', (data: Room) => eventsRef.current.onStateChange(data));
+    socket.on('role_assigned', (data: Room) => eventsRef.current.onStateChange(data));
+    socket.on('chat_history', (messages: ChatMessage[]) => eventsRef.current.onChatHistory?.(messages));
+    socket.on('message', (message: ChatMessage) => eventsRef.current.onChatMessage(message));
+    socket.on('participant_removed', (data: { participantId?: string; userId?: string }) => {
+      if (data.userId && data.userId === userIdRef.current) {
+        eventsRef.current.onKicked?.();
+      }
     });
-
-    socket.on('user_joined', (data: Room) => {
-      events.onStateChange(data);
+    socket.on('session_replaced', () => {
+      eventsRef.current.onSessionReplaced?.();
     });
-
-    socket.on('user_left', (data: Room) => {
-      events.onStateChange(data);
-    });
-
-    socket.on('role_assigned', (data: Room) => {
-      events.onStateChange(data);
-    });
-
-    socket.on('participant_removed', (data: Room) => {
-      events.onStateChange(data);
-    });
-
-    socket.on('message', (message: ChatMessage) => {
-      events.onChatMessage(message);
-    });
-
-    socket.on('error', (error: any) => {
-      const errorMsg =
-        typeof error === 'string' ? error : error?.message || 'Socket error occurred';
-      events.onError(errorMsg);
+    socket.on('error', (error: { message?: string } | string) => {
+      const errorMsg = typeof error === 'string' ? error : error?.message || 'Socket error occurred';
+      eventsRef.current.onError(errorMsg);
     });
 
     return () => {
-      socket.emit('leave_room', { roomCode: room.code });
+      socket.removeAllListeners();
       socket.disconnect();
+      socketRef.current = null;
     };
-  }, [room?.code, userId, events]);
+  }, [roomCode, userId]);
 
-  const emit = useCallback(
-    (event: string, payload: any) => {
-      if (socketRef.current?.connected) {
-        socketRef.current.emit(event, {
-          ...payload,
-          roomCode: room?.code,
-          userId,
-        });
-      }
-    },
-    [room?.code, userId]
-  );
+  const emit = useCallback((event: string, payload: object = {}) => {
+    if (socketRef.current?.connected) {
+      socketRef.current.emit(event, payload);
+    }
+  }, []);
 
-  const play = useCallback(
-    (currentTime: number) => {
-      emit('play', { currentTime });
-    },
-    [emit]
-  );
-
-  const pause = useCallback(
-    (currentTime: number) => {
-      emit('pause', { currentTime });
-    },
-    [emit]
-  );
-
-  const seek = useCallback(
-    (time: number) => {
-      emit('seek', { currentTime: time });
-    },
-    [emit]
-  );
-
-  const changeVideo = useCallback(
-    (videoId: string) => {
-      emit('change_video', { videoId });
-    },
-    [emit]
-  );
-
-  const assignRole = useCallback(
-    (participantId: string, role: Role) => {
-      emit('assign_role', { participantId, role });
-    },
-    [emit]
-  );
-
-  const removeParticipant = useCallback(
-    (participantId: string) => {
-      emit('remove_participant', { participantId });
-    },
-    [emit]
-  );
-
-  const sendMessage = useCallback(
-    (text: string) => {
-      emit('send_message', { text });
-    },
-    [emit]
-  );
+  const leaveRoom = useCallback(() => {
+    socketRef.current?.emit('leave_room', {}, () => undefined);
+  }, []);
 
   return {
     isConnected,
-    play,
-    pause,
-    seek,
-    changeVideo,
-    assignRole,
-    removeParticipant,
-    sendMessage,
-    emit,
+    play: useCallback((currentTime: number) => emit('play', { currentTime }), [emit]),
+    pause: useCallback((currentTime: number) => emit('pause', { currentTime }), [emit]),
+    seek: useCallback((time: number) => emit('seek', { currentTime: time }), [emit]),
+    changeVideo: useCallback((videoId: string) => emit('change_video', { videoId }), [emit]),
+    assignRole: useCallback(
+      (participantId: string, role: Role) => emit('assign_role', { participantId, role }),
+      [emit]
+    ),
+    removeParticipant: useCallback(
+      (participantId: string) => emit('remove_participant', { participantId }),
+      [emit]
+    ),
+    transferHost: useCallback(
+      (participantId: string) => emit('transfer_host', { participantId }),
+      [emit]
+    ),
+    sendMessage: useCallback((text: string) => emit('send_message', { text }), [emit]),
+    leaveRoom,
   };
 }

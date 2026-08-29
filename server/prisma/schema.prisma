@@ -19,15 +19,17 @@ enum PlayState {
 }
 
 model Room {
-  id           String        @id @default(cuid())
-  code         String        @unique
-  hostUserId   String
-  videoId      String        @default("dQw4w9WgXcQ")
-  playState    PlayState     @default(paused)
-  currentTime  Float         @default(0)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  participants Participant[]
+  id                 String        @id @default(cuid())
+  code               String        @unique
+  name               String
+  hostUserId         String
+  videoId            String
+  playState          PlayState     @default(paused)
+  currentTime        Float         @default(0)
+  playbackUpdatedAt  DateTime      @default(now())
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  participants       Participant[]
 }
 
 model Participant {
