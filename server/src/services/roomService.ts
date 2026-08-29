@@ -137,5 +137,3 @@ export async function deleteRoom(code: string, userId: string): Promise<'NOT_FOU
   await prisma.room.delete({ where: { id: room.id } });
   return 'DELETED';
 }
-
-export async function deleteRoom(code: string, userId: string): Promise<'NOT_FOUND' | 'FORBIDDEN' | 'DELETED'> {
