@@ -25,6 +25,12 @@ export function RoomPage() {
   const [liveTime, setLiveTime] = useState(0);
   const [leaving, setLeaving] = useState(false);
 
+  // Always enter a room at the top. This prevents browser scroll restoration
+  // from opening the room halfway down and hiding the header/video metadata.
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [code]);
+
   useEffect(() => {
     if (!code) return;
     if (!identity?.userId || !identity.username) { navigate(`/join/${code.toUpperCase()}`, { replace: true }); return; }
@@ -55,7 +61,10 @@ export function RoomPage() {
   });
 
   const currentParticipant = useMemo(() => room?.participants.find((participant) => participant.userId === identity?.userId), [room, identity?.userId]);
-  const isHost = currentParticipant?.role === 'HOST';
+  // The Room's hostUserId is the single source of truth for the UI. The server
+  // independently authorizes playback events as HOST, so participants cannot
+  // gain playback access by changing client state.
+  const isHost = Boolean(identity?.userId && room?.hostUserId === identity.userId);
   const canManage = isHost;
   const handlePlay = (time?: number) => { if (isHost) socket.play(time ?? liveTime); };
   const handlePause = (time?: number) => { if (isHost) socket.pause(time ?? liveTime); };
