@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import { API_URL } from '../lib/api';
 import { getIdentity } from '../lib/identity';
-import type { ChatMessage, Room, Role } from '../types/room';
+import type { Room, Role, ChatMessage } from '../types/room';
 
 interface SocketEvents {
   onStateChange: (room: Room) => void;
@@ -13,11 +13,7 @@ interface SocketEvents {
   onSessionReplaced?: () => void;
 }
 
-export function useRoomSocket(
-  roomCode: string | undefined,
-  userId: string | undefined,
-  events: SocketEvents
-) {
+export function useRoomSocket(roomCode: string | undefined, userId: string | undefined, events: SocketEvents) {
   const socketRef = useRef<Socket | null>(null);
   const eventsRef = useRef(events);
   eventsRef.current = events;
@@ -27,35 +23,15 @@ export function useRoomSocket(
 
   useEffect(() => {
     if (!roomCode || !userId) return;
-
-    const socket = io(API_URL, {
-      query: { userId },
-      reconnection: true,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      reconnectionAttempts: 10,
-    });
-
+    const socket = io(API_URL, { query: { userId }, reconnection: true, reconnectionDelay: 1000, reconnectionDelayMax: 5000, reconnectionAttempts: 10 });
     socketRef.current = socket;
 
     const join = () => {
       const identity = getIdentity();
-      socket.emit('join_room', {
-        roomCode,
-        userId,
-        username: identity?.username || 'Guest',
-      });
+      socket.emit('join_room', { roomCode, userId, username: identity?.username || 'Guest' });
     };
-
-    socket.on('connect', () => {
-      setIsConnected(true);
-      join();
-    });
-
-    socket.on('disconnect', () => {
-      setIsConnected(false);
-    });
-
+    socket.on('connect', () => { setIsConnected(true); join(); });
+    socket.on('disconnect', () => setIsConnected(false));
     socket.on('sync_state', (data: Room) => eventsRef.current.onStateChange(data));
     socket.on('user_joined', (data: Room) => eventsRef.current.onStateChange(data));
     socket.on('user_left', (data: Room) => eventsRef.current.onStateChange(data));
@@ -63,16 +39,11 @@ export function useRoomSocket(
     socket.on('chat_history', (messages: ChatMessage[]) => eventsRef.current.onChatHistory?.(messages));
     socket.on('message', (message: ChatMessage) => eventsRef.current.onChatMessage(message));
     socket.on('participant_removed', (data: { participantId?: string; userId?: string }) => {
-      if (data.userId && data.userId === userIdRef.current) {
-        eventsRef.current.onKicked?.();
-      }
+      if (data.userId && data.userId === userIdRef.current) eventsRef.current.onKicked?.();
     });
-    socket.on('session_replaced', () => {
-      eventsRef.current.onSessionReplaced?.();
-    });
+    socket.on('session_replaced', () => eventsRef.current.onSessionReplaced?.());
     socket.on('error', (error: { message?: string } | string) => {
-      const errorMsg = typeof error === 'string' ? error : error?.message || 'Socket error occurred';
-      eventsRef.current.onError(errorMsg);
+      eventsRef.current.onError(typeof error === 'string' ? error : error?.message || 'Socket error occurred');
     });
 
     return () => {
@@ -83,14 +54,17 @@ export function useRoomSocket(
   }, [roomCode, userId]);
 
   const emit = useCallback((event: string, payload: object = {}) => {
-    if (socketRef.current?.connected) {
-      socketRef.current.emit(event, payload);
-    }
+    if (socketRef.current?.connected) socketRef.current.emit(event, payload);
   }, []);
 
-  const leaveRoom = useCallback(() => {
-    socketRef.current?.emit('leave_room', {}, () => undefined);
-  }, []);
+  const leaveRoom = useCallback(() => new Promise<void>((resolve) => {
+    const socket = socketRef.current;
+    if (!socket?.connected) { resolve(); return; }
+    let settled = false;
+    const finish = () => { if (!settled) { settled = true; resolve(); } };
+    socket.timeout(1200).emit('leave_room', {}, () => finish());
+    window.setTimeout(finish, 1400);
+  }), []);
 
   return {
     isConnected,
@@ -98,18 +72,9 @@ export function useRoomSocket(
     pause: useCallback((currentTime: number) => emit('pause', { currentTime }), [emit]),
     seek: useCallback((time: number) => emit('seek', { currentTime: time }), [emit]),
     changeVideo: useCallback((videoId: string) => emit('change_video', { videoId }), [emit]),
-    assignRole: useCallback(
-      (participantId: string, role: Role) => emit('assign_role', { participantId, role }),
-      [emit]
-    ),
-    removeParticipant: useCallback(
-      (participantId: string) => emit('remove_participant', { participantId }),
-      [emit]
-    ),
-    transferHost: useCallback(
-      (participantId: string) => emit('transfer_host', { participantId }),
-      [emit]
-    ),
+    assignRole: useCallback((participantId: string, role: Role) => emit('assign_role', { participantId, role }), [emit]),
+    removeParticipant: useCallback((participantId: string) => emit('remove_participant', { participantId }), [emit]),
+    transferHost: useCallback((participantId: string) => emit('transfer_host', { participantId }), [emit]),
     sendMessage: useCallback((text: string) => emit('send_message', { text }), [emit]),
     leaveRoom,
   };
