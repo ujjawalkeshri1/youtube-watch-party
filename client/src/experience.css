@@ -1,14 +1,14 @@
 /* Shared cinematic atmosphere for every surface */
-.auth-page,.room-page{position:relative;isolation:isolate;overflow:hidden;background:#070708!important}
+.auth-page,.room-page{position:relative;isolation:isolate;background:#070708!important}
 .auth-page::before,.room-page::before{content:'';position:absolute;inset:-15%;z-index:-2;pointer-events:none;background:radial-gradient(circle at 18% 18%,rgba(255,48,72,.13),transparent 24%),radial-gradient(circle at 82% 14%,rgba(112,74,255,.10),transparent 25%),radial-gradient(circle at 52% 92%,rgba(255,48,72,.07),transparent 28%);animation:cinematicDrift 14s ease-in-out infinite alternate}
 .auth-page::after,.room-page::after{content:'';position:absolute;inset:0;z-index:-1;pointer-events:none;opacity:.32;background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);background-size:56px 56px;mask-image:linear-gradient(to bottom,rgba(0,0,0,.8),transparent 85%)}
 .auth-shell,.room-header,.room-main{position:relative;z-index:1}
 @keyframes cinematicDrift{from{transform:translate3d(-1%,0,0) scale(1)}to{transform:translate3d(1%,1%,0) scale(1.04)}}
 
-/* Participant video is read-only. The custom toolbar remains interactive. */
+/* Participant video is a read-only YouTube surface. Native YouTube controls
+   are disabled; only our three safe controls remain interactive. */
 .video-participant .youtube-frame{pointer-events:none}
-.video-participant .participant-play-lock{position:absolute;left:25%;top:18%;width:50%;height:58%;z-index:7;background:transparent;cursor:default}
-.video-participant .participant-settings-lock{position:absolute;right:52px;bottom:0;width:64px;height:52px;z-index:7;background:transparent;cursor:default}
+.video-participant .participant-interaction-shield{position:absolute;inset:0;z-index:7;background:transparent;pointer-events:auto}
 .participant-tools{position:absolute;right:12px;bottom:12px;z-index:9;display:flex;align-items:center;gap:5px;padding:5px;border:1px solid rgba(255,255,255,.14);border-radius:12px;background:rgba(8,8,10,.72);backdrop-filter:blur(12px);box-shadow:0 10px 35px rgba(0,0,0,.35);opacity:.86;transition:opacity .2s,transform .2s}
 .video-participant:hover .participant-tools{opacity:1;transform:translateY(-1px)}
 .participant-tool{width:34px;height:34px;display:grid;place-items:center;border-radius:8px;color:#d6d6db;transition:.16s;background:transparent}
