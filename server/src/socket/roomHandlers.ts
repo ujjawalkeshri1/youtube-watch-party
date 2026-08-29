@@ -48,6 +48,7 @@ export function registerRoomSocketHandlers(io: Server) {
         socket.to(room.code).emit('user_joined', joinedRoomDto);
       } catch { sendError(socket, errorCodes.INTERNAL_ERROR, 'Unable to join the room.'); }
     });
+
     socket.on('leave_room', async (_payload, ack?: () => void) => { await handleLeave(io, socket, { deleteParticipant: true }); ack?.(); });
     socket.on('play', (payload: unknown) => handlePlayback(io, socket, payload, 'playing'));
     socket.on('pause', (payload: unknown) => handlePlayback(io, socket, payload, 'paused'));
@@ -55,7 +56,7 @@ export function registerRoomSocketHandlers(io: Server) {
     socket.on('change_video', async (payload: unknown) => {
       const input = videoPayload.safeParse(payload);
       if (!input.success) return sendError(socket, errorCodes.INVALID_INPUT, input.error.issues[0]?.message ?? 'Invalid video ID.');
-      const participant = await authorized(socket, ['HOST', 'MODERATOR'], 'You are not authorized to control playback.');
+      const participant = await authorized(socket, ['HOST'], 'Only the host can change the video.');
       if (!participant) return;
       const room = await updatePlayback(participant.roomId, { videoId: input.data.videoId, currentTime: 0, playState: 'paused' });
       io.to(participant.room.code).emit('sync_state', toRoomDto(room));
@@ -104,30 +105,29 @@ async function handleLeave(io: Server, socket: Socket, options: { deleteParticip
   try {
     const participant = await currentParticipant(socket);
     if (!participant) return;
+    const roomCode = participant.room.code;
 
-    // Leaving a party is not the same as ending it. If the host leaves,
-    // promote the earliest connected participant and keep the room alive.
+    // A party belongs to its host. If the host explicitly leaves or disconnects,
+    // end the room for everyone instead of silently promoting another host.
     if (participant.role === 'HOST') {
-      const nextHost = await prisma.participant.findFirst({ where: { roomId: participant.roomId, id: { not: participant.id }, socketId: { not: null } }, orderBy: { joinedAt: 'asc' } });
-      if (nextHost) {
-        await prisma.$transaction([
-          prisma.room.update({ where: { id: participant.roomId }, data: { hostUserId: nextHost.userId } }),
-          prisma.participant.update({ where: { id: nextHost.id }, data: { role: 'HOST' } }),
-        ]);
-      }
+      io.to(roomCode).emit('room_ended', { roomCode, reason: 'The host ended the watch party.' });
+      roomMessages.delete(roomCode);
+      await prisma.room.delete({ where: { id: participant.roomId } }).catch(() => undefined);
+      socket.leave(roomCode);
+      return;
     }
 
     if (options.deleteParticipant) await prisma.participant.delete({ where: { id: participant.id } }).catch(() => undefined);
     else await prisma.participant.updateMany({ where: { socketId: socket.id }, data: { socketId: null } });
 
-    socket.leave(participant.room.code);
-    const room = await getRoom(participant.room.code);
-    if (room) io.to(participant.room.code).emit('user_left', toRoomDto(room));
+    socket.leave(roomCode);
+    const room = await getRoom(roomCode);
+    if (room) io.to(roomCode).emit('user_left', toRoomDto(room));
   } finally { leavingSockets.delete(socket.id); }
 }
 
 async function handlePlayback(io: Server, socket: Socket, payload: unknown, playState?: 'playing' | 'paused') {
   const input = timePayload.safeParse(payload); if (!input.success) return sendError(socket, errorCodes.INVALID_INPUT, 'currentTime must be a non-negative number.');
-  const participant = await authorized(socket, ['HOST', 'MODERATOR'], 'You are not authorized to control playback.'); if (!participant) return;
+  const participant = await authorized(socket, ['HOST'], 'Only the host can control playback.'); if (!participant) return;
   const room = await updatePlayback(participant.roomId, { playState, currentTime: input.data.currentTime }); io.to(participant.room.code).emit('sync_state', toRoomDto(room));
 }
