@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import type { ChatMessage, Role, Room } from '../types/room';
 import { api } from '../lib/api';
@@ -98,7 +98,7 @@ export function RoomPage() {
           {isHost && <div className="video-input-section"><label className="label" htmlFor="video-input">Current video</label><div className="video-input-form"><input id="video-input" type="text" value={videoInput} onChange={(event) => setVideoInput(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); handleChangeVideo(); } }} placeholder="Paste a YouTube URL to change video" className="input" /><button onClick={handleChangeVideo} disabled={!videoInput} className="btn btn-secondary">Change Video</button></div></div>}
           {error && <div className="error-banner">{error}</div>}
         </div>
-        <aside className="sidebar" style={{ position: 'sticky', top: 92, alignSelf: 'start', height: 'calc(100vh - 112px)', minHeight: 0 }}>
+        <aside className="sidebar">
           <ParticipantList participants={room.participants} currentUserId={identity.userId} canManage={canManage} onRole={handlePromoteParticipant} onRemove={handleRemoveParticipant} onTransferHost={handleTransferHost} />
           <ChatPanel messages={messages} onSend={socket.sendMessage} />
         </aside>
