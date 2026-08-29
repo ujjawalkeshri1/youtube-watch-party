@@ -1,4 +1,4 @@
-import { Maximize2 } from 'lucide-react';
+import { Captions, Maximize2, Volume2, VolumeX } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { loadYouTubeAPI, YT_PLAYER_STATE, type YouTubePlayerAPI } from '../lib/youtube';
 
@@ -17,39 +17,24 @@ interface VideoPlayerProps {
 
 function youtubeErrorMessage(code: number) {
   switch (code) {
-    case 2:
-      return 'YouTube rejected the video ID. Please choose another video.';
-    case 5:
-      return 'YouTube could not play this video in the embedded player.';
-    case 100:
-      return 'This YouTube video is unavailable, private, or has been removed.';
+    case 2: return 'YouTube rejected the video ID. Please choose another video.';
+    case 5: return 'YouTube could not play this video in the embedded player.';
+    case 100: return 'This YouTube video is unavailable, private, or has been removed.';
     case 101:
-    case 150:
-      return 'This video does not allow playback on external websites. Please choose an embeddable YouTube video.';
-    case 153:
-      return 'YouTube could not verify the embedding page. Check the browser connection/referrer settings and reload.';
-    default:
-      return `YouTube player error (${code}).`;
+    case 150: return 'This video does not allow playback on external websites. Please choose another embeddable video.';
+    case 153: return 'YouTube could not verify the embedding page. Check the browser connection/referrer settings and reload.';
+    default: return `YouTube player error (${code}).`;
   }
 }
 
-export function VideoPlayer({
-  videoId,
-  isPlaying,
-  currentTime,
-  canControl,
-  onPlay,
-  onPause,
-  onSeek,
-  onTimeUpdate,
-  onDuration,
-  onError,
-}: VideoPlayerProps) {
+export function VideoPlayer({ videoId, isPlaying, currentTime, canControl, onPlay, onPause, onSeek, onTimeUpdate, onDuration, onError }: VideoPlayerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YouTubePlayerAPI | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [playerReady, setPlayerReady] = useState(false);
+  const [muted, setMuted] = useState(false);
+  const [captions, setCaptions] = useState(false);
   const applyingRemoteRef = useRef(false);
   const canControlRef = useRef(canControl);
   const lastEmittedSeekRef = useRef(0);
@@ -72,30 +57,45 @@ export function VideoPlayer({
     const element = containerRef.current;
     if (!element) return;
     try {
-      if (document.fullscreenElement) {
-        await document.exitFullscreen();
-      } else {
-        await element.requestFullscreen();
-      }
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await element.requestFullscreen();
     } catch {
       onErrorRef.current?.('Fullscreen is not available in this browser.');
     }
   };
 
+  const toggleMute = () => {
+    const player = playerRef.current;
+    if (!player) return;
+    const nextMuted = !(player.isMuted?.() ?? muted);
+    if (nextMuted) player.mute?.(); else player.unMute?.();
+    setMuted(nextMuted);
+  };
+
+  const toggleCaptions = () => {
+    const player = playerRef.current;
+    if (!player) return;
+    try {
+      if (captions) {
+        player.unloadModule?.('captions');
+      } else {
+        player.loadModule?.('captions');
+        player.setOption?.('captions', 'fontSize', 1);
+      }
+      setCaptions((value) => !value);
+    } catch {
+      onErrorRef.current?.('Captions are not available for this video.');
+    }
+  };
+
   useEffect(() => {
     let destroyed = false;
-
     const initPlayer = async () => {
       try {
-        setLoading(true);
-        setError(null);
+        setLoading(true); setError(null);
         await loadYouTubeAPI();
         if (destroyed || !containerRef.current) return;
-
-        const YT = (window as unknown as {
-          YT: { Player: new (el: HTMLElement, opts: object) => YouTubePlayerAPI };
-        }).YT;
-
+        const YT = (window as unknown as { YT: { Player: new (el: HTMLElement, opts: object) => YouTubePlayerAPI } }).YT;
         playerRef.current = new YT.Player(containerRef.current, {
           height: '100%',
           width: '100%',
@@ -111,9 +111,7 @@ export function VideoPlayer({
           events: {
             onReady: () => {
               if (destroyed || !playerRef.current) return;
-              setPlayerReady(true);
-              setLoading(false);
-              setError(null);
+              setPlayerReady(true); setLoading(false); setError(null);
               playerRef.current.cueVideoById(videoId);
               const duration = playerRef.current.getDuration?.() || 0;
               if (duration) onDurationRef.current?.(duration);
@@ -131,9 +129,7 @@ export function VideoPlayer({
             },
             onError: (event: { data: number }) => {
               const message = youtubeErrorMessage(event.data);
-              setLoading(false);
-              setError(message);
-              onErrorRef.current?.(message);
+              setLoading(false); setError(message); onErrorRef.current?.(message);
             },
             onAutoplayBlocked: () => {
               setError('Browser blocked automatic playback. Press Play in the YouTube player to continue.');
@@ -143,12 +139,9 @@ export function VideoPlayer({
         });
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Failed to load YouTube player';
-        setLoading(false);
-        setError(msg);
-        onErrorRef.current?.(msg);
+        setLoading(false); setError(msg); onErrorRef.current?.(msg);
       }
     };
-
     void initPlayer();
     return () => {
       destroyed = true;
@@ -162,8 +155,7 @@ export function VideoPlayer({
     if (!playerReady || !playerRef.current || !videoId) return;
     const currentVideoId = playerRef.current.getVideoData?.()?.video_id;
     if (currentVideoId === videoId) return;
-    applyingRemoteRef.current = true;
-    setError(null);
+    applyingRemoteRef.current = true; setError(null); setCaptions(false);
     playerRef.current.cueVideoById(videoId);
     const timer = window.setTimeout(() => { applyingRemoteRef.current = false; }, 800);
     return () => window.clearTimeout(timer);
@@ -215,32 +207,22 @@ export function VideoPlayer({
   }, [playerReady]);
 
   return (
-    <div className="video-container">
-      {loading && (
-        <div className="video-loading">
-          <div className="spinner" />
-          <span>Loading YouTube video…</span>
-        </div>
-      )}
-      {error && (
-        <div className="video-error" role="alert">
-          <strong>Video unavailable</strong>
-          <span>{error}</span>
-          <a href={`https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`} target="_blank" rel="noreferrer">
-            Open on YouTube
-          </a>
-        </div>
-      )}
+    <div className={`video-container ${canControl ? 'video-host' : 'video-participant'}`}>
+      {loading && <div className="video-loading"><div className="spinner" /><span>Loading YouTube video…</span></div>}
+      {error && <div className="video-error" role="alert"><strong>Video unavailable</strong><span>{error}</span><a href={`https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`} target="_blank" rel="noreferrer">Open on YouTube</a></div>}
       <div ref={containerRef} className="youtube-frame" style={{ width: '100%', height: '100%', display: 'block' }} />
-      <button
-        type="button"
-        className="custom-fullscreen-btn"
-        onClick={handleFullscreen}
-        title="Fullscreen"
-        aria-label="Fullscreen"
-      >
-        <Maximize2 size={17} />
-      </button>
+      {!canControl && (
+        <>
+          <div className="participant-play-lock" aria-hidden="true" />
+          <div className="participant-settings-lock" aria-hidden="true" />
+          <div className="participant-tools">
+            <button type="button" className={`participant-tool ${muted ? 'active' : ''}`} onClick={toggleMute} title={muted ? 'Unmute' : 'Mute'} aria-label={muted ? 'Unmute' : 'Mute'}>{muted ? <VolumeX size={17} /> : <Volume2 size={17} />}</button>
+            <button type="button" className={`participant-tool ${captions ? 'active' : ''}`} onClick={toggleCaptions} title="Captions" aria-label="Captions"><Captions size={17} /></button>
+            <button type="button" className="participant-tool" onClick={handleFullscreen} title="Fullscreen" aria-label="Fullscreen"><Maximize2 size={17} /></button>
+          </div>
+        </>
+      )}
+      {canControl && <button type="button" className="custom-fullscreen-btn" onClick={handleFullscreen} title="Fullscreen" aria-label="Fullscreen"><Maximize2 size={17} /></button>}
     </div>
   );
 }
