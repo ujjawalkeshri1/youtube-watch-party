@@ -11,6 +11,7 @@ interface SocketEvents {
   onError: (error: string) => void;
   onKicked?: () => void;
   onSessionReplaced?: () => void;
+  onRoomEnded?: (reason?: string) => void;
 }
 
 export function useRoomSocket(roomCode: string | undefined, userId: string | undefined, events: SocketEvents) {
@@ -25,7 +26,6 @@ export function useRoomSocket(roomCode: string | undefined, userId: string | und
     if (!roomCode || !userId) return;
     const socket = io(API_URL, { query: { userId }, reconnection: true, reconnectionDelay: 1000, reconnectionDelayMax: 5000, reconnectionAttempts: 10 });
     socketRef.current = socket;
-
     const join = () => {
       const identity = getIdentity();
       socket.emit('join_room', { roomCode, userId, username: identity?.username || 'Guest' });
@@ -38,6 +38,7 @@ export function useRoomSocket(roomCode: string | undefined, userId: string | und
     socket.on('role_assigned', (data: Room) => eventsRef.current.onStateChange(data));
     socket.on('chat_history', (messages: ChatMessage[]) => eventsRef.current.onChatHistory?.(messages));
     socket.on('message', (message: ChatMessage) => eventsRef.current.onChatMessage(message));
+    socket.on('room_ended', (data: { reason?: string }) => eventsRef.current.onRoomEnded?.(data?.reason));
     socket.on('participant_removed', (data: { participantId?: string; userId?: string }) => {
       if (data.userId && data.userId === userIdRef.current) eventsRef.current.onKicked?.();
     });
@@ -45,7 +46,6 @@ export function useRoomSocket(roomCode: string | undefined, userId: string | und
     socket.on('error', (error: { message?: string } | string) => {
       eventsRef.current.onError(typeof error === 'string' ? error : error?.message || 'Socket error occurred');
     });
-
     return () => {
       socket.removeAllListeners();
       socket.disconnect();
