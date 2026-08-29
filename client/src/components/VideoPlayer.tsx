@@ -54,7 +54,7 @@ export function VideoPlayer({ videoId, isPlaying, currentTime, canControl, onPla
   onErrorRef.current = onError;
 
   const handleFullscreen = async () => {
-    const element = containerRef.current;
+    const element = containerRef.current?.parentElement;
     if (!element) return;
     try {
       if (document.fullscreenElement) await document.exitFullscreen();
@@ -76,9 +76,8 @@ export function VideoPlayer({ videoId, isPlaying, currentTime, canControl, onPla
     const player = playerRef.current;
     if (!player) return;
     try {
-      if (captions) {
-        player.unloadModule?.('captions');
-      } else {
+      if (captions) player.unloadModule?.('captions');
+      else {
         player.loadModule?.('captions');
         player.setOption?.('captions', 'fontSize', 1);
       }
@@ -102,10 +101,14 @@ export function VideoPlayer({ videoId, isPlaying, currentTime, canControl, onPla
           videoId,
           playerVars: {
             autoplay: 0,
-            controls: 1,
+            // Host uses native YouTube playback controls. Participants get NO
+            // native controls so the YouTube play/pause/settings UI cannot be used.
+            controls: canControlRef.current ? 1 : 0,
+            disablekb: canControlRef.current ? 0 : 1,
             rel: 0,
             playsinline: 1,
             enablejsapi: 1,
+            modestbranding: 1,
             origin: window.location.origin,
           },
           events: {
@@ -119,11 +122,10 @@ export function VideoPlayer({ videoId, isPlaying, currentTime, canControl, onPla
             onStateChange: (event: { data: number }) => {
               if (destroyed || applyingRemoteRef.current) return;
               const player = playerRef.current;
-              if (!player) return;
+              if (!player || !canControlRef.current) return;
               const time = player.getCurrentTime?.() || 0;
               const duration = player.getDuration?.() || 0;
               if (duration) onDurationRef.current?.(duration);
-              if (!canControlRef.current) return;
               if (event.data === YT_PLAYER_STATE.PLAYING) onPlayRef.current?.(time);
               else if (event.data === YT_PLAYER_STATE.PAUSED) onPauseRef.current?.(time);
             },
@@ -132,7 +134,7 @@ export function VideoPlayer({ videoId, isPlaying, currentTime, canControl, onPla
               setLoading(false); setError(message); onErrorRef.current?.(message);
             },
             onAutoplayBlocked: () => {
-              setError('Browser blocked automatic playback. Press Play in the YouTube player to continue.');
+              setError('Browser blocked automatic playback. Press Play to continue.');
               setLoading(false);
             },
           },
@@ -161,6 +163,7 @@ export function VideoPlayer({ videoId, isPlaying, currentTime, canControl, onPla
     return () => window.clearTimeout(timer);
   }, [videoId, playerReady]);
 
+  // The room state is authoritative. Participants never originate playback changes.
   useEffect(() => {
     if (!playerReady || !playerRef.current) return;
     applyingRemoteRef.current = true;
@@ -213,8 +216,7 @@ export function VideoPlayer({ videoId, isPlaying, currentTime, canControl, onPla
       <div ref={containerRef} className="youtube-frame" style={{ width: '100%', height: '100%', display: 'block' }} />
       {!canControl && (
         <>
-          <div className="participant-play-lock" aria-hidden="true" />
-          <div className="participant-settings-lock" aria-hidden="true" />
+          <div className="participant-interaction-shield" aria-hidden="true" />
           <div className="participant-tools">
             <button type="button" className={`participant-tool ${muted ? 'active' : ''}`} onClick={toggleMute} title={muted ? 'Unmute' : 'Mute'} aria-label={muted ? 'Unmute' : 'Mute'}>{muted ? <VolumeX size={17} /> : <Volume2 size={17} />}</button>
             <button type="button" className={`participant-tool ${captions ? 'active' : ''}`} onClick={toggleCaptions} title="Captions" aria-label="Captions"><Captions size={17} /></button>
