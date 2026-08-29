@@ -5,7 +5,8 @@
 .auth-shell,.room-header,.room-main{position:relative;z-index:1}
 @keyframes cinematicDrift{from{transform:translate3d(-1%,0,0) scale(1)}to{transform:translate3d(1%,1%,0) scale(1.04)}}
 
-/* Participant video: shared playback is controlled by the host only. */
+/* Participant video is read-only. The custom toolbar remains interactive. */
+.video-participant .youtube-frame{pointer-events:none}
 .video-participant .participant-play-lock{position:absolute;left:25%;top:18%;width:50%;height:58%;z-index:7;background:transparent;cursor:default}
 .video-participant .participant-settings-lock{position:absolute;right:52px;bottom:0;width:64px;height:52px;z-index:7;background:transparent;cursor:default}
 .participant-tools{position:absolute;right:12px;bottom:12px;z-index:9;display:flex;align-items:center;gap:5px;padding:5px;border:1px solid rgba(255,255,255,.14);border-radius:12px;background:rgba(8,8,10,.72);backdrop-filter:blur(12px);box-shadow:0 10px 35px rgba(0,0,0,.35);opacity:.86;transition:opacity .2s,transform .2s}
@@ -36,10 +37,7 @@
 .reaction-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
 .reaction-option{height:38px;display:flex;align-items:center;justify-content:center;gap:6px;border:1px solid rgba(255,255,255,.06);border-radius:9px;color:#bfc0c7;font:700 9px 'Space Grotesk',sans-serif;letter-spacing:.06em;background:rgba(255,255,255,.025);transition:.16s}
 .reaction-option:hover{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff;transform:translateY(-1px)}
-
-/* Keep the shared cinematic treatment visible without overwhelming the content. */
 .auth-page .auth-card{box-shadow:0 30px 100px rgba(0,0,0,.5),0 0 90px rgba(255,48,72,.07)!important}
 .room-page .video-wrapper,.room-page .side-section,.room-page .playback-controls,.room-page .video-input-section{box-shadow:0 24px 70px rgba(0,0,0,.34)}
-
 @media(max-width:600px){.participant-tools{right:8px;bottom:8px}.reaction-grid{grid-template-columns:repeat(2,1fr)}.message-text{font-size:12px!important}}
-@media(prefers-reduced-motion:reduce){.auth-page::before{animation:none}.room-page::before{animation:none}}
+@media(prefers-reduced-motion:reduce){.auth-page::before,.room-page::before{animation:none}}
