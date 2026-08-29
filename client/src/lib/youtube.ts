@@ -10,6 +10,14 @@ export interface YouTubePlayerAPI {
   cueVideoById(videoId: string): void;
   destroy(): void;
   getVideoData(): { video_id: string };
+  getVolume?(): number;
+  setVolume?(volume: number): void;
+  isMuted?(): boolean;
+  mute?(): void;
+  unMute?(): void;
+  loadModule?(module: string): void;
+  unloadModule?(module: string): void;
+  setOption?(module: string, option: string, value: unknown): void;
 }
 
 export enum YT_PLAYER_STATE {
