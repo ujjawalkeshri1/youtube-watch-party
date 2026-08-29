@@ -1,6 +1,6 @@
 import { FormEvent, useState } from 'react';
+import { ArrowLeft, ArrowRight, Link2, UserRound } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { api } from '../lib/api';
 import { getIdentity, upsertIdentity } from '../lib/identity';
 import { parseYouTubeVideoId } from '../lib/youtube';
@@ -17,83 +17,52 @@ export function CreateRoomPage() {
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (!parseYouTubeVideoId(videoUrl)) {
-      setError('Invalid YouTube URL.');
+      setError('Please enter a valid YouTube video URL.');
       return;
     }
-
     setLoading(true);
     setError('');
     try {
       const identity = upsertIdentity(username);
-      const created = await api.createRoom({
-        username: identity.username,
-        userId: identity.userId,
-        name: name.trim(),
-        videoUrl: videoUrl.trim(),
-      });
+      const created = await api.createRoom({ username: identity.username, userId: identity.userId, name: name.trim(), videoUrl: videoUrl.trim() });
       navigate(`/room/${created.room.code}`);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Unable to create room.');
+      setError(caught instanceof Error ? caught.message : 'Unable to create the room.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <main className="home-page">
-      <div className="home-container">
-        <div className="home-header">
-          <h1>Create Watch Party</h1>
-          <p className="subtitle">Name the party and paste the YouTube video everyone will watch.</p>
-        </div>
-        <form className="form-card" onSubmit={submit}>
-          <label className="label" htmlFor="create-username">
-            Your name
-          </label>
-          <input
-            id="create-username"
-            className="input"
-            value={username}
-            maxLength={32}
-            onChange={(event) => setUsername(event.target.value)}
-            required
-          />
-
-          <label className="label" htmlFor="party-name">
-            Party name
-          </label>
-          <input
-            id="party-name"
-            className="input"
-            value={name}
-            maxLength={80}
-            placeholder="My Friday Watch Party"
-            onChange={(event) => setName(event.target.value)}
-            required
-          />
-
-          <label className="label" htmlFor="video-url">
-            YouTube video
-          </label>
-          <input
-            id="video-url"
-            className="input"
-            value={videoUrl}
-            placeholder="https://www.youtube.com/watch?v=..."
-            onChange={(event) => setVideoUrl(event.target.value)}
-            required
-          />
-
-          {error && <div className="error-message">{error}</div>}
-
-          <button className="btn btn-primary btn-large" type="submit" disabled={loading || !username.trim() || !name.trim() || !videoUrl.trim()}>
-            {loading ? 'Creating...' : 'Create Watch Party'}
-            <ArrowRight size={20} />
-          </button>
-          <button className="btn btn-text" type="button" onClick={() => navigate('/')}>
-            <ArrowLeft size={16} /> Back
-          </button>
-        </form>
+    <main className="auth-page">
+      <div className="auth-shell">
+        <button className="back-link" type="button" onClick={() => navigate('/')}><ArrowLeft size={17} /> Back to home</button>
+        <div className="auth-brand">watch<span>party</span></div>
+        <section className="auth-card">
+          <div className="auth-card-heading">
+            <div className="step-pill">NEW ROOM</div>
+            <h1>Create your watch party</h1>
+            <p>Set up a room, add a YouTube video, and invite your friends.</p>
+          </div>
+          <form onSubmit={submit}>
+            <div className="field-group">
+              <label htmlFor="create-username">Your name</label>
+              <div className="field-with-icon"><UserRound size={18} /><input id="create-username" value={username} maxLength={32} onChange={(event) => setUsername(event.target.value)} placeholder="How should friends see you?" required /></div>
+            </div>
+            <div className="field-group">
+              <label htmlFor="party-name">Party name</label>
+              <input id="party-name" value={name} maxLength={80} onChange={(event) => setName(event.target.value)} placeholder="Friday Movie Night" required />
+            </div>
+            <div className="field-group">
+              <label htmlFor="video-url">YouTube video</label>
+              <div className="field-with-icon"><Link2 size={18} /><input id="video-url" value={videoUrl} onChange={(event) => setVideoUrl(event.target.value)} placeholder="Paste a YouTube link" required /></div>
+              <span className="field-hint">You can change the video later as host.</span>
+            </div>
+            {error && <div className="form-error">{error}</div>}
+            <button className="primary-action" type="submit" disabled={loading || !username.trim() || !name.trim() || !videoUrl.trim()}>{loading ? 'Creating room…' : 'Create watch party'}<ArrowRight size={19} /></button>
+          </form>
+        </section>
+        <p className="auth-footnote">No account required · Share the room link with your friends</p>
       </div>
     </main>
   );
