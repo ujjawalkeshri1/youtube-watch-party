@@ -1,3 +1,4 @@
+import { Maximize2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { loadYouTubeAPI, YT_PLAYER_STATE, type YouTubePlayerAPI } from '../lib/youtube';
 
@@ -67,6 +68,20 @@ export function VideoPlayer({
   onDurationRef.current = onDuration;
   onErrorRef.current = onError;
 
+  const handleFullscreen = async () => {
+    const element = containerRef.current;
+    if (!element) return;
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else {
+        await element.requestFullscreen();
+      }
+    } catch {
+      onErrorRef.current?.('Fullscreen is not available in this browser.');
+    }
+  };
+
   useEffect(() => {
     let destroyed = false;
 
@@ -96,13 +111,9 @@ export function VideoPlayer({
           events: {
             onReady: () => {
               if (destroyed || !playerRef.current) return;
-
               setPlayerReady(true);
               setLoading(false);
               setError(null);
-
-              // Cue instead of immediately playing. The room's playState is the
-              // source of truth, so playback is started by the sync effect below.
               playerRef.current.cueVideoById(videoId);
               const duration = playerRef.current.getDuration?.() || 0;
               if (duration) onDurationRef.current?.(duration);
@@ -111,17 +122,12 @@ export function VideoPlayer({
               if (destroyed || applyingRemoteRef.current) return;
               const player = playerRef.current;
               if (!player) return;
-
               const time = player.getCurrentTime?.() || 0;
               const duration = player.getDuration?.() || 0;
               if (duration) onDurationRef.current?.(duration);
-
               if (!canControlRef.current) return;
-              if (event.data === YT_PLAYER_STATE.PLAYING) {
-                onPlayRef.current?.(time);
-              } else if (event.data === YT_PLAYER_STATE.PAUSED) {
-                onPauseRef.current?.(time);
-              }
+              if (event.data === YT_PLAYER_STATE.PLAYING) onPlayRef.current?.(time);
+              else if (event.data === YT_PLAYER_STATE.PAUSED) onPauseRef.current?.(time);
             },
             onError: (event: { data: number }) => {
               const message = youtubeErrorMessage(event.data);
@@ -144,128 +150,97 @@ export function VideoPlayer({
     };
 
     void initPlayer();
-
     return () => {
       destroyed = true;
       playerRef.current?.destroy?.();
       playerRef.current = null;
       setPlayerReady(false);
     };
-    // The player is intentionally created once. Video changes are handled below.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     if (!playerReady || !playerRef.current || !videoId) return;
-
     const currentVideoId = playerRef.current.getVideoData?.()?.video_id;
     if (currentVideoId === videoId) return;
-
     applyingRemoteRef.current = true;
     setError(null);
     playerRef.current.cueVideoById(videoId);
-
-    const timer = window.setTimeout(() => {
-      applyingRemoteRef.current = false;
-    }, 800);
-
+    const timer = window.setTimeout(() => { applyingRemoteRef.current = false; }, 800);
     return () => window.clearTimeout(timer);
   }, [videoId, playerReady]);
 
   useEffect(() => {
     if (!playerReady || !playerRef.current) return;
-
     applyingRemoteRef.current = true;
     const player = playerRef.current;
     const state = player.getPlayerState?.();
     const isPlayerPlaying = state === YT_PLAYER_STATE.PLAYING;
-
-    if (isPlaying && !isPlayerPlaying) {
-      player.playVideo?.();
-    } else if (!isPlaying && isPlayerPlaying) {
-      player.pauseVideo?.();
-    }
-
-    const timer = window.setTimeout(() => {
-      applyingRemoteRef.current = false;
-    }, 700);
-
+    if (isPlaying && !isPlayerPlaying) player.playVideo?.();
+    else if (!isPlaying && isPlayerPlaying) player.pauseVideo?.();
+    const timer = window.setTimeout(() => { applyingRemoteRef.current = false; }, 700);
     return () => window.clearTimeout(timer);
   }, [isPlaying, playerReady, videoId]);
 
   useEffect(() => {
     if (!playerReady || !playerRef.current) return;
-
     const player = playerRef.current;
     const playerTime = player.getCurrentTime?.() || 0;
-
     if (Math.abs(playerTime - currentTime) > 1.5) {
       applyingRemoteRef.current = true;
       player.seekTo?.(Math.max(0, currentTime), true);
-
-      const timer = window.setTimeout(() => {
-        applyingRemoteRef.current = false;
-      }, 600);
-
+      const timer = window.setTimeout(() => { applyingRemoteRef.current = false; }, 600);
       return () => window.clearTimeout(timer);
     }
   }, [currentTime, playerReady, videoId]);
 
   useEffect(() => {
     if (!playerReady || !playerRef.current) return;
-
     let previousTime = playerRef.current.getCurrentTime?.() || 0;
-
     const interval = window.setInterval(() => {
       const player = playerRef.current;
       if (!player) return;
-
       const time = player.getCurrentTime?.() || 0;
       const duration = player.getDuration?.() || 0;
       onTimeUpdateRef.current?.(time);
       if (duration) onDurationRef.current?.(duration);
-
       const jumped = Math.abs(time - previousTime) > 2;
       previousTime = time;
-
       if (!canControlRef.current || applyingRemoteRef.current || !jumped) return;
       if (Math.abs(time - lastEmittedSeekRef.current) > 1) {
         lastEmittedSeekRef.current = time;
         onSeekRef.current?.(time);
       }
     }, 500);
-
     return () => window.clearInterval(interval);
   }, [playerReady]);
 
   return (
-    <div className="video-container" style={{ pointerEvents: canControl ? 'auto' : 'none' }}>
+    <div className="video-container">
       {loading && (
         <div className="video-loading">
           <div className="spinner" />
           <span>Loading YouTube video…</span>
         </div>
       )}
-
       {error && (
         <div className="video-error" role="alert">
           <strong>Video unavailable</strong>
           <span>{error}</span>
-          <a
-            href={`https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`}
-            target="_blank"
-            rel="noreferrer"
-          >
+          <a href={`https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`} target="_blank" rel="noreferrer">
             Open on YouTube
           </a>
         </div>
       )}
-
-      <div
-        ref={containerRef}
-        className="youtube-frame"
-        style={{ width: '100%', height: '100%', display: 'block' }}
-      />
+      <div ref={containerRef} className="youtube-frame" style={{ width: '100%', height: '100%', display: 'block' }} />
+      <button
+        type="button"
+        className="custom-fullscreen-btn"
+        onClick={handleFullscreen}
+        title="Fullscreen"
+        aria-label="Fullscreen"
+      >
+        <Maximize2 size={17} />
+      </button>
     </div>
   );
 }
