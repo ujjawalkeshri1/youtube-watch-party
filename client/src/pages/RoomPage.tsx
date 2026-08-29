@@ -27,28 +27,22 @@ export function RoomPage() {
 
   useEffect(() => {
     if (!code) return;
-    if (!identity?.userId || !identity.username) {
-      navigate(`/join/${code.toUpperCase()}`, { replace: true });
-      return;
-    }
+    if (!identity?.userId || !identity.username) { navigate(`/join/${code.toUpperCase()}`, { replace: true }); return; }
     let cancelled = false;
     const load = async () => {
       setLoading(true); setLoadError(null);
       try {
         const joined = await api.joinRoom(code, { username: identity.username, userId: identity.userId });
         if (!cancelled) { setRoom(joined.room); setLiveTime(joined.room.currentTime); }
-      } catch (caught) {
-        if (!cancelled) setLoadError(caught instanceof Error ? caught.message : 'Room not found.');
-      } finally { if (!cancelled) setLoading(false); }
+      } catch (caught) { if (!cancelled) setLoadError(caught instanceof Error ? caught.message : 'Room not found.'); }
+      finally { if (!cancelled) setLoading(false); }
     };
     void load();
     return () => { cancelled = true; };
   }, [code, identity?.userId, identity?.username, navigate]);
 
   const onKicked = useCallback(() => navigate('/?notice=' + encodeURIComponent('You were removed from the room.'), { replace: true }), [navigate]);
-  const onRoomEnded = useCallback((reason?: string) => {
-    navigate('/?notice=' + encodeURIComponent(reason || 'The host ended the watch party.'), { replace: true });
-  }, [navigate]);
+  const onRoomEnded = useCallback((reason?: string) => navigate('/?notice=' + encodeURIComponent(reason || 'The host ended the watch party.'), { replace: true }), [navigate]);
 
   const socket = useRoomSocket(room?.code, identity?.userId, {
     onStateChange: (nextRoom) => { setRoom(nextRoom); setLiveTime(nextRoom.currentTime); },
@@ -61,8 +55,6 @@ export function RoomPage() {
   });
 
   const currentParticipant = useMemo(() => room?.participants.find((participant) => participant.userId === identity?.userId), [room, identity?.userId]);
-  // Playback is intentionally host-only. Moderators can still manage participants,
-  // but they cannot independently start, pause, or seek the shared video.
   const isHost = currentParticipant?.role === 'HOST';
   const canManage = isHost;
   const handlePlay = (time?: number) => { if (isHost) socket.play(time ?? liveTime); };
@@ -95,7 +87,7 @@ export function RoomPage() {
           <div className="video-wrapper">
             <VideoPlayer videoId={room.videoId} isPlaying={room.playState === 'playing'} currentTime={room.currentTime} canControl={isHost} onPlay={handlePlay} onPause={handlePause} onSeek={handleSeek} onTimeUpdate={setLiveTime} onDuration={setDuration} onError={setError} />
           </div>
-          <PlaybackControls isPlaying={room.playState === 'playing'} currentTime={liveTime || room.currentTime} duration={duration} onPlay={() => handlePlay()} onPause={() => handlePause()} onSeek={handleSeek} canControl={isHost} />
+          {isHost && <PlaybackControls isPlaying={room.playState === 'playing'} currentTime={liveTime || room.currentTime} duration={duration} onPlay={() => handlePlay()} onPause={() => handlePause()} onSeek={handleSeek} canControl />}
           {isHost && <div className="video-input-section"><label className="label" htmlFor="video-input">Current video</label><div className="video-input-form"><input id="video-input" type="text" value={videoInput} onChange={(event) => setVideoInput(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); handleChangeVideo(); } }} placeholder="Paste a YouTube URL to change video" className="input" /><button onClick={handleChangeVideo} disabled={!videoInput} className="btn btn-secondary">Change Video</button></div></div>}
           {error && <div className="error-banner">{error}</div>}
         </div>
