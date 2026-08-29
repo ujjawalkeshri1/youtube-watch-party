@@ -94,12 +94,12 @@ export function JoinRoomPage() {
               <label htmlFor="join-code">Room code or invite link</label>
               <div className="field-with-icon">
                 <KeyRound size={18} />
-                <input id="join-code" className="room-code-input" value={code} maxLength={8} onChange={(event) => handleCodeChange(event.target.value)} placeholder="7532008E" required />
+                <input id="join-code" className="room-code-input" value={code} maxLength={180} onChange={(event) => handleCodeChange(event.target.value)} placeholder="7532008E or paste invite link" required />
                 <button type="button" onClick={pasteInvite} title="Paste invite" aria-label="Paste invite" style={{ color: pasted ? '#34d399' : '#8e8e98', display: 'grid', placeItems: 'center' }}>
                   <Clipboard size={17} />
                 </button>
               </div>
-              <span className="field-hint">Paste either <strong>7532008E</strong> or the full /join/ link.</span>
+              <span className="field-hint">Paste either <strong>7532008E</strong> or the full <strong>/join/</strong> link.</span>
             </div>
             {error && <div className="form-error">{error}</div>}
             <button className="primary-action" type="submit" disabled={loading || !username.trim() || code.length !== 8}>
