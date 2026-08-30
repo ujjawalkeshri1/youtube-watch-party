@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import type { ChatMessage, Role, Room } from '../types/room';
 import { api } from '../lib/api';
@@ -25,8 +25,15 @@ export function RoomPage() {
   const [liveTime, setLiveTime] = useState(0);
   const [leaving, setLeaving] = useState(false);
 
-  useEffect(() => {
-    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  useLayoutEffect(() => {
+    const previousRestoration = window.history.scrollRestoration;
+    window.history.scrollRestoration = 'manual';
+    window.scrollTo(0, 0);
+    const frame = window.requestAnimationFrame(() => window.scrollTo(0, 0));
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.history.scrollRestoration = previousRestoration;
+    };
   }, [code]);
 
   useEffect(() => {
@@ -49,10 +56,7 @@ export function RoomPage() {
   const onRoomEnded = useCallback((reason?: string) => navigate('/?notice=' + encodeURIComponent(reason || 'The host ended the watch party.'), { replace: true }), [navigate]);
 
   const socket = useRoomSocket(room?.code, identity?.userId, {
-    onStateChange: (nextRoom) => {
-      setRoom(nextRoom);
-      setLiveTime(nextRoom.currentTime);
-    },
+    onStateChange: (nextRoom) => { setRoom(nextRoom); setLiveTime(nextRoom.currentTime); },
     onChatMessage: (message) => setMessages((prev) => [...prev, message]),
     onChatHistory: setMessages,
     onError: (errorMsg) => { setError(errorMsg); setTimeout(() => setError(null), 5000); },
@@ -61,7 +65,6 @@ export function RoomPage() {
     onSessionReplaced: () => setError('This party is open in another tab. This tab is no longer connected.'),
   });
 
-  // The room owner is the single source of truth for all privileged UI.
   const isHost = Boolean(identity?.userId && room?.hostUserId === identity.userId);
   const canManage = isHost;
   const handlePlay = (time?: number) => { if (isHost) socket.play(time ?? liveTime); };
