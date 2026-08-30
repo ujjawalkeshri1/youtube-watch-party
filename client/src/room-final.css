@@ -1,12 +1,11 @@
-/* Final room layout: keep the player and utility rail aligned while the page scrolls. */
 .room-page {
   min-height: 100vh;
 }
 
 .room-main {
   align-items: start;
-  min-height: calc(100vh - 72px);
-  padding-bottom: 40px;
+  min-height: 0;
+  padding-bottom: 0;
 }
 
 .player-section {
@@ -19,23 +18,21 @@
   aspect-ratio: 16 / 9;
 }
 
-/* The sidebar is intentionally sticky, not fixed to the document, so it stays
-   beside the player without overlapping the header or escaping the room. */
 .sidebar {
   position: sticky;
   top: 92px;
   align-self: start;
-  height: calc(100vh - 112px);
-  min-height: 360px;
-  max-height: calc(100vh - 112px);
+  height: auto;
+  min-height: 0;
+  max-height: none;
 }
 
 .sidebar > .side-section:first-child {
-  flex: 0 0 240px;
+  flex: 0 0 auto;
 }
 
 .sidebar > .chat {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   min-height: 0;
 }
 
@@ -43,14 +40,10 @@
   min-height: 0;
 }
 
-/* Remove any legacy custom fullscreen control left by earlier UI versions. */
 .custom-fullscreen-btn {
   display: none !important;
 }
 
-/* YouTube's fs=0 is the primary restriction. This small transparent guard also
-   prevents an iframe/player build that ignores fs=0 from exposing a second
-   fullscreen affordance in the bottom-right corner. */
 .youtube-fullscreen-blocker {
   position: absolute;
   right: 0;
