@@ -20,8 +20,8 @@ registerRoomSocketHandlers(io);
 
 const clientDist = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../client/dist');
 if (env.NODE_ENV === 'production' && existsSync(clientDist)) {
-	app.use(express.static(clientDist));
-	app.use((_req, res) => res.sendFile(path.join(clientDist, 'index.html')));
+  app.use(express.static(clientDist));
+  app.use((_req, res) => res.sendFile(path.join(clientDist, 'index.html')));
 }
 
-httpServer.listen(env.PORT, () => console.log(`Watch party server listening on port ${env.PORT}`));
+httpServer.listen(env.PORT, '0.0.0.0', () => console.log(`Watch party server listening on port ${env.PORT}`));
