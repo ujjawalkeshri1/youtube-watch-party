@@ -10,6 +10,7 @@ export interface YouTubePlayerAPI {
   cueVideoById(videoId: string): void;
   destroy(): void;
   getVideoData(): { video_id: string };
+  getIframe?(): HTMLIFrameElement;
   getVolume?(): number;
   setVolume?(volume: number): void;
   isMuted?(): boolean;

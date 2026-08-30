@@ -40,8 +40,9 @@ export function VideoPlayer({ videoId, isPlaying, currentTime, canControl, onPla
   const onTimeUpdateRef = useRef(onTimeUpdate);
   const onDurationRef = useRef(onDuration);
   const onErrorRef = useRef(onError);
-  const lastEmittedSeekRef = useRef(0);
   const syncAnchorRef = useRef({ time: 0, at: 0 });
+  const observedRef = useRef({ time: 0, at: 0 });
+  const lastEmittedSeekRef = useRef(0);
 
   canControlRef.current = canControl;
   onPlayRef.current = onPlay;
@@ -81,7 +82,14 @@ export function VideoPlayer({ videoId, isPlaying, currentTime, canControl, onPla
               setPlayerReady(true);
               setLoading(false);
               setError(null);
+
+              const iframe = playerRef.current.getIframe?.();
+              iframe?.removeAttribute('allowfullscreen');
+              iframe?.setAttribute('donotallowfullscreen', '');
+
               const duration = playerRef.current.getDuration?.() || 0;
+              const time = playerRef.current.getCurrentTime?.() || 0;
+              observedRef.current = { time, at: performance.now() };
               if (duration) onDurationRef.current?.(duration);
             },
             onStateChange: (event: { data: number }) => {
@@ -130,57 +138,81 @@ export function VideoPlayer({ videoId, isPlaying, currentTime, canControl, onPla
     setError(null);
     playerRef.current.cueVideoById(videoId);
     syncAnchorRef.current = { time: currentTime, at: performance.now() };
+    observedRef.current = { time: 0, at: performance.now() };
     const timer = window.setTimeout(() => { applyingRemoteRef.current = false; }, 700);
     return () => window.clearTimeout(timer);
-  }, [videoId, playerReady]);
+  }, [videoId, playerReady, currentTime]);
 
   useEffect(() => {
     syncAnchorRef.current = { time: currentTime, at: performance.now() };
   }, [currentTime]);
 
+  // Apply every authoritative server playback update, including seeks.
+  // currentTime is intentionally part of this dependency list; without it,
+  // a host seek changed the database/socket state but did not move the iframe.
   useEffect(() => {
     if (!playerReady || !playerRef.current) return;
     const player = playerRef.current;
     applyingRemoteRef.current = true;
     syncAnchorRef.current = { time: currentTime, at: performance.now() };
 
-    if (isPlaying) player.playVideo?.();
-    else player.pauseVideo?.();
-
     const playerTime = player.getCurrentTime?.() || 0;
-    if (!isPlaying && Math.abs(playerTime - currentTime) > 0.75) {
-      player.seekTo?.(Math.max(0, currentTime), true);
-    } else if (isPlaying && Math.abs(playerTime - currentTime) > 1.5) {
-      player.seekTo?.(Math.max(0, currentTime), true);
+    const difference = Math.abs(playerTime - currentTime);
+
+    if (isPlaying) {
+      if (player.getPlayerState?.() !== YT_PLAYER_STATE.PLAYING) player.playVideo?.();
+      if (difference > 1.0) player.seekTo?.(Math.max(0, currentTime), true);
+    } else {
+      if (player.getPlayerState?.() === YT_PLAYER_STATE.PLAYING) player.pauseVideo?.();
+      if (difference > 0.35) player.seekTo?.(Math.max(0, currentTime), true);
     }
 
+    const now = performance.now();
+    observedRef.current = { time: currentTime, at: now };
     const timer = window.setTimeout(() => { applyingRemoteRef.current = false; }, 350);
     return () => window.clearTimeout(timer);
-  }, [isPlaying, playerReady, videoId]);
+  }, [currentTime, isPlaying, playerReady]);
 
+  // Polling is used because the IFrame API exposes player-state events but does
+  // not expose a dedicated seek event. A large discontinuity from the expected
+  // clock movement therefore represents a native YouTube seek/skip operation.
   useEffect(() => {
     if (!playerReady || !playerRef.current) return;
-    let previousTime = playerRef.current.getCurrentTime?.() || 0;
     const interval = window.setInterval(() => {
       const player = playerRef.current;
       if (!player) return;
+      const now = performance.now();
       const time = player.getCurrentTime?.() || 0;
       const duration = player.getDuration?.() || 0;
+      const state = player.getPlayerState?.();
+      const previous = observedRef.current;
+      const elapsed = Math.max(0, (now - previous.at) / 1000);
+      const expectedDelta = state === YT_PLAYER_STATE.PLAYING ? elapsed : 0;
+      const actualDelta = time - previous.time;
+
       onTimeUpdateRef.current?.(time);
       if (duration) onDurationRef.current?.(duration);
 
-      const jumped = Math.abs(time - previousTime) > 1.25;
-      previousTime = time;
-      if (!canControlRef.current || applyingRemoteRef.current || !jumped) return;
-      if (Math.abs(time - lastEmittedSeekRef.current) > 0.5) {
+      const discontinuity = Math.abs(actualDelta - expectedDelta) > 0.75;
+      const meaningfulSeek = Math.abs(time - lastEmittedSeekRef.current) > 0.5;
+      if (
+        canControlRef.current &&
+        !applyingRemoteRef.current &&
+        state !== YT_PLAYER_STATE.BUFFERING &&
+        discontinuity &&
+        meaningfulSeek
+      ) {
         lastEmittedSeekRef.current = time;
         onSeekRef.current?.(time);
       }
-    }, 500);
+
+      observedRef.current = { time, at: now };
+    }, 200);
     return () => window.clearInterval(interval);
   }, [playerReady]);
 
-  /* Participants follow the server's moving playback clock and cannot issue player commands. */
+  // Participants follow the server's moving playback clock and cannot issue
+  // player commands. Their player is also shielded from pointer/keyboard input.
   useEffect(() => {
     if (!playerReady || !playerRef.current || canControl) return;
     const interval = window.setInterval(() => {
@@ -207,6 +239,7 @@ export function VideoPlayer({ videoId, isPlaying, currentTime, canControl, onPla
       {loading && <div className="video-loading"><div className="spinner" /><span>Loading YouTube video…</span></div>}
       {error && <div className="video-error" role="alert"><strong>Video unavailable</strong><span>{error}</span><a href={`https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`} target="_blank" rel="noreferrer">Open on YouTube</a></div>}
       <div ref={containerRef} className="youtube-frame" style={{ width: '100%', height: '100%', display: 'block' }} />
+      <div className="youtube-fullscreen-blocker" aria-hidden="true" />
       {!canControl && <div className="participant-interaction-shield" aria-hidden="true" />}
     </div>
   );
