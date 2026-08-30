@@ -5,8 +5,7 @@
 .auth-shell,.room-header,.room-main{position:relative;z-index:1}
 @keyframes cinematicDrift{from{transform:translate3d(-1%,0,0) scale(1)}to{transform:translate3d(1%,1%,0) scale(1.04)}}
 
-/* Participant video is a read-only YouTube surface. Native YouTube controls
-   are disabled; only our three safe controls remain interactive. */
+/* Participants never receive YouTube interaction or controls. */
 .video-participant .youtube-frame{pointer-events:none}
 .video-participant .participant-interaction-shield{position:absolute;inset:0;z-index:7;background:transparent;pointer-events:auto}
 .participant-tools{position:absolute;right:12px;bottom:12px;z-index:9;display:flex;align-items:center;gap:5px;padding:5px;border:1px solid rgba(255,255,255,.14);border-radius:12px;background:rgba(8,8,10,.72);backdrop-filter:blur(12px);box-shadow:0 10px 35px rgba(0,0,0,.35);opacity:.86;transition:opacity .2s,transform .2s}
@@ -14,6 +13,14 @@
 .participant-tool{width:34px;height:34px;display:grid;place-items:center;border-radius:8px;color:#d6d6db;transition:.16s;background:transparent}
 .participant-tool:hover,.participant-tool.active{background:rgba(255,255,255,.11);color:#fff}
 .participant-tool.active{color:#ff6b7d}
+
+/* Keep the room utility column locked to the viewport on desktop. */
+@media(min-width:901px){
+  .room-main{padding-right:388px;align-items:start}
+  .sidebar{position:fixed!important;top:92px!important;right:max(20px,calc((100vw - 1540px)/2 + 20px));width:350px;height:calc(100dvh - 112px)!important;min-height:0!important;align-self:start;z-index:10}
+  .sidebar>.side-section:first-child{flex:0 0 255px!important}
+  .sidebar>.chat{flex:1 1 auto!important;min-height:0!important}
+}
 
 /* Richer chat hierarchy and typography */
 .chat-heading{height:58px!important}
@@ -41,5 +48,6 @@
 .join-capabilities i{width:3px;height:3px;border-radius:50%;background:#3d3d45}
 .auth-page .auth-card{box-shadow:0 30px 100px rgba(0,0,0,.5),0 0 90px rgba(255,48,72,.07)!important}
 .room-page .video-wrapper,.room-page .side-section,.room-page .playback-controls,.room-page .video-input-section{box-shadow:0 24px 70px rgba(0,0,0,.34)}
+@media(max-width:900px){.sidebar{position:static!important;height:auto!important}.room-main{padding-right:20px}}
 @media(max-width:600px){.participant-tools{right:8px;bottom:8px}.reaction-grid{grid-template-columns:repeat(2,1fr)}.message-text{font-size:12px!important}}
 @media(prefers-reduced-motion:reduce){.auth-page::before,.room-page::before{animation:none}}
