@@ -1,4 +1,3 @@
-import { Maximize2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { loadYouTubeAPI, YT_PLAYER_STATE, type YouTubePlayerAPI } from '../lib/youtube';
 
@@ -51,17 +50,6 @@ export function VideoPlayer({ videoId, isPlaying, currentTime, canControl, onPla
   onTimeUpdateRef.current = onTimeUpdate;
   onDurationRef.current = onDuration;
   onErrorRef.current = onError;
-
-  const handleFullscreen = async () => {
-    const element = containerRef.current?.parentElement;
-    if (!element) return;
-    try {
-      if (document.fullscreenElement) await document.exitFullscreen();
-      else await element.requestFullscreen();
-    } catch {
-      onErrorRef.current?.('Fullscreen is not available in this browser.');
-    }
-  };
 
   useEffect(() => {
     let destroyed = false;
@@ -145,17 +133,10 @@ export function VideoPlayer({ videoId, isPlaying, currentTime, canControl, onPla
     return () => window.clearTimeout(timer);
   }, [videoId, playerReady]);
 
-  // Every authoritative room timestamp becomes a new synchronization anchor.
-  // We do not seek on every timestamp update while playing; the local player
-  // is allowed to advance naturally between corrections.
   useEffect(() => {
     syncAnchorRef.current = { time: currentTime, at: performance.now() };
   }, [currentTime]);
 
-  // The server's currentTime is the position at the moment of the last
-  // playback command. While playing, time naturally advances on the client;
-  // it must NOT be treated as a fixed timestamp or the player will jump back
-  // every few seconds. We anchor the server time once and only correct drift.
   useEffect(() => {
     if (!playerReady || !playerRef.current) return;
     const player = playerRef.current;
@@ -198,8 +179,6 @@ export function VideoPlayer({ videoId, isPlaying, currentTime, canControl, onPla
     return () => window.clearInterval(interval);
   }, [playerReady]);
 
-  // Participants follow a moving timeline. This avoids the old bug where a
-  // participant was repeatedly seeking to the original play timestamp.
   useEffect(() => {
     if (!playerReady || !playerRef.current || canControl) return;
     const interval = window.setInterval(() => {
@@ -226,7 +205,6 @@ export function VideoPlayer({ videoId, isPlaying, currentTime, canControl, onPla
       {loading && <div className="video-loading"><div className="spinner" /><span>Loading YouTube video…</span></div>}
       {error && <div className="video-error" role="alert"><strong>Video unavailable</strong><span>{error}</span><a href={`https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`} target="_blank" rel="noreferrer">Open on YouTube</a></div>}
       <div ref={containerRef} className="youtube-frame" style={{ width: '100%', height: '100%', display: 'block' }} />
-      {canControl && <button type="button" className="custom-fullscreen-btn" onClick={handleFullscreen} title="Fullscreen" aria-label="Fullscreen"><Maximize2 size={17} /></button>}
     </div>
   );
 }
