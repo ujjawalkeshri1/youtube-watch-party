@@ -14,11 +14,12 @@
 .participant-tool:hover,.participant-tool.active{background:rgba(255,255,255,.11);color:#fff}
 .participant-tool.active{color:#ff6b7d}
 
-/* Keep the room utility column locked to the viewport on desktop. */
+/* Desktop room layout: the sidebar is fixed, so the player gets the full remaining width. */
 @media(min-width:901px){
-  .room-main{padding-right:388px;align-items:start}
-  .sidebar{position:fixed!important;top:92px!important;right:max(20px,calc((100vw - 1540px)/2 + 20px));width:350px;height:calc(100dvh - 112px)!important;min-height:0!important;align-self:start;z-index:10}
-  .sidebar>.side-section:first-child{flex:0 0 255px!important}
+  .room-main{display:block!important;max-width:1540px;margin:0 auto;width:100%;padding:20px 388px 20px 20px!important}
+  .player-section{width:100%;min-width:0}
+  .sidebar{position:fixed!important;top:92px!important;right:max(20px,calc((100vw - 1540px)/2 + 20px));width:350px;height:calc(100dvh - 112px)!important;min-height:0!important;align-self:start;z-index:10;display:flex!important;flex-direction:column!important;gap:12px!important}
+  .sidebar>.side-section:first-child{flex:0 0 210px!important;min-height:210px!important}
   .sidebar>.chat{flex:1 1 auto!important;min-height:0!important}
 }
 
