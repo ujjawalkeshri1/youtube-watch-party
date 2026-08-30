@@ -1,6 +1,6 @@
 import type { ApiErrorBody, Room, RoomMutationResponse } from '../types/room';
 
-const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:5000';
+const API_URL = import.meta.env.VITE_API_URL ?? (import.meta.env.PROD ? window.location.origin : 'http://localhost:5000');
 
 export function readApiError(body: ApiErrorBody | undefined, fallback: string, status: number): string {
   const error = body?.error;
