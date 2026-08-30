@@ -1,49 +1,91 @@
-/* Shared cinematic atmosphere for every surface */
-.auth-page,.room-page{position:relative;isolation:isolate;background:#070708!important}
-.auth-page::before,.room-page::before{content:'';position:absolute;inset:-15%;z-index:-2;pointer-events:none;background:radial-gradient(circle at 18% 18%,rgba(255,48,72,.13),transparent 24%),radial-gradient(circle at 82% 14%,rgba(112,74,255,.10),transparent 25%),radial-gradient(circle at 52% 92%,rgba(255,48,72,.07),transparent 28%);animation:cinematicDrift 14s ease-in-out infinite alternate}
-.auth-page::after,.room-page::after{content:'';position:absolute;inset:0;z-index:-1;pointer-events:none;opacity:.32;background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);background-size:56px 56px;mask-image:linear-gradient(to bottom,rgba(0,0,0,.8),transparent 85%)}
-.auth-shell,.room-header,.room-main{position:relative;z-index:1}
-@keyframes cinematicDrift{from{transform:translate3d(-1%,0,0) scale(1)}to{transform:translate3d(1%,1%,0) scale(1.04)}}
-
-/* Participants are watch-only. The server is authoritative; this is only a UI guard. */
-.video-participant .youtube-frame{pointer-events:none}
-.video-participant .participant-interaction-shield{position:absolute;inset:0;z-index:7;background:transparent;pointer-events:auto}
-
-/* Desktop room layout: keep the original wide player + right utility column. */
-@media(min-width:901px){
-  .room-main{display:grid!important;grid-template-columns:minmax(0,1fr) 350px!important;gap:18px!important;max-width:1540px;margin:0 auto;width:100%;padding:20px!important;align-items:start!important}
-  .player-section{min-width:0;width:auto}
-  .sidebar{position:sticky!important;top:92px!important;right:auto!important;width:350px!important;height:calc(100dvh - 112px)!important;min-height:0!important;align-self:start;z-index:10;display:flex!important;flex-direction:column!important;gap:12px!important;overflow:hidden!important}
-  .sidebar>.side-section:first-child{flex:0 0 255px!important;min-height:255px!important}
-  .sidebar>.chat{flex:1 1 auto!important;min-height:0!important;overflow:hidden!important}
+/* Shared cinematic atmosphere for every surface. Decorative layers are
+   absolutely positioned so they never participate in document height. */
+.auth-page,
+.room-page {
+  position: relative;
+  isolation: isolate;
+  background: #08090b;
 }
 
-/* Richer chat hierarchy and typography */
-.chat-heading{height:58px!important}
-.chat-title h2{font-size:14px!important;letter-spacing:-.025em}
-.messages{padding:12px 10px 8px!important}
-.message{gap:10px;padding:10px 7px!important;border-radius:12px}
-.message-avatar{width:34px!important;height:34px!important;border-radius:10px!important;font-size:9px!important}
-.message-header strong{font:700 12px 'Space Grotesk',sans-serif!important;color:#f0f0f3}
-.message-time{font-size:9px!important;color:#686871!important}
-.message-text{margin-top:4px!important;font:500 13px/1.5 'DM Sans',sans-serif!important;color:#d0d0d6!important;letter-spacing:-.005em}
-.chat-empty strong{font-size:12px!important;color:#aaaab3!important}
-.chat-empty span{font-size:10px!important}
-.chat-composer-wrap{padding:10px!important}
-.chat-form{padding:5px!important;border-radius:13px!important}
-.chat-form input{height:38px!important;padding:0 8px!important;font-size:12px!important;color:#eee!important}
-.chat-form input::placeholder{color:#6f6f78!important}
-.emoji-trigger,.send-btn{width:35px!important;height:35px!important;border-radius:9px!important}
-.send-btn{box-shadow:0 8px 20px rgba(255,48,72,.18)}
-.emoji-popover{padding:12px!important;border-radius:15px!important}
-.emoji-popover-head{font-size:10px!important}
-.reaction-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
-.reaction-option{height:38px;display:flex;align-items:center;justify-content:center;gap:6px;border:1px solid rgba(255,255,255,.06);border-radius:9px;color:#bfc0c7;font:700 9px 'Space Grotesk',sans-serif;letter-spacing:.06em;background:rgba(255,255,255,.025);transition:.16s}
-.reaction-option:hover{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff;transform:translateY(-1px)}
-.join-capabilities{display:flex;align-items:center;justify-content:center;gap:9px;margin-top:18px;color:#62626b;font:700 8px 'Space Grotesk',sans-serif;letter-spacing:.13em}
-.join-capabilities i{width:3px;height:3px;border-radius:50%;background:#3d3d45}
-.auth-page .auth-card{box-shadow:0 30px 100px rgba(0,0,0,.5),0 0 90px rgba(255,48,72,.07)!important}
-.room-page .video-wrapper,.room-page .side-section,.room-page .playback-controls,.room-page .video-input-section{box-shadow:0 24px 70px rgba(0,0,0,.34)}
-@media(max-width:900px){.sidebar{position:static!important;height:auto!important;overflow:visible!important}.room-main{grid-template-columns:1fr!important;padding:20px!important}.sidebar>.side-section:first-child{min-height:0!important}.sidebar>.chat{min-height:520px!important}}
-@media(max-width:600px){.reaction-grid{grid-template-columns:repeat(2,1fr)}.message-text{font-size:12px!important}}
-@media(prefers-reduced-motion:reduce){.auth-page::before,.room-page::before{animation:none}}
+.auth-page::before,
+.room-page::before {
+  content: '';
+  position: absolute;
+  inset: -15%;
+  z-index: -2;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 18% 18%, rgba(255, 48, 72, .11), transparent 24%),
+    radial-gradient(circle at 82% 14%, rgba(112, 74, 255, .07), transparent 25%),
+    radial-gradient(circle at 52% 92%, rgba(255, 48, 72, .05), transparent 28%);
+  animation: cinematicDrift 14s ease-in-out infinite alternate;
+}
+
+.auth-page::after,
+.room-page::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: .24;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, .02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, .02) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, .75), transparent 85%);
+}
+
+.auth-shell,
+.room-header,
+.room-main {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes cinematicDrift {
+  from { transform: translate3d(-1%, 0, 0) scale(1); }
+  to { transform: translate3d(1%, 1%, 0) scale(1.04); }
+}
+
+/* Participants are watch-only. The server is authoritative; this is only a UI guard. */
+.video-participant .youtube-frame {
+  pointer-events: none;
+}
+
+.video-participant .participant-interaction-shield {
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  background: transparent;
+  pointer-events: auto;
+}
+
+.join-capabilities {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  margin-top: 18px;
+  color: #62626b;
+  font: 700 8px 'Space Grotesk', sans-serif;
+  letter-spacing: .13em;
+}
+
+.join-capabilities i {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #3d3d45;
+}
+
+.auth-page .auth-card {
+  box-shadow: 0 30px 100px rgba(0, 0, 0, .48), 0 0 90px rgba(255, 48, 72, .05);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-page::before,
+  .room-page::before {
+    animation: none;
+  }
+}

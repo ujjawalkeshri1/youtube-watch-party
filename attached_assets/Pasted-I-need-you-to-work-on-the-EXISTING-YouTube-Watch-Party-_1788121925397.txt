@@ -1,0 +1,656 @@
+I need you to work on the EXISTING YouTube Watch Party project that has already been imported from GitHub.
+
+THIS IS A UI/CSS REFACTOR ONLY.
+
+The application is already functionally implemented. DO NOT rebuild the application and DO NOT change its architecture.
+
+==================================================
+ABSOLUTE RULE — DO NOT BREAK FUNCTIONALITY
+==================================================
+
+Do NOT change, remove, replace, or redesign any existing functionality.
+
+Do NOT change:
+
+- authentication
+- authorization
+- room creation
+- room joining
+- room codes
+- participant management
+- host management
+- role management
+- kick/remove participant functionality
+- host transfer
+- WebSocket/socket logic
+- Socket.IO/event names
+- backend APIs
+- Prisma
+- PostgreSQL
+- database schema
+- migrations
+- server code
+- YouTube video loading
+- YouTube video ID parsing
+- YouTube player integration
+- synchronized playback
+- play/pause synchronization
+- seek synchronization
+- playback clock
+- video changing
+- chat functionality
+- chat messages
+- chat history
+- connection handling
+- error handling
+- routing
+- authentication state
+- local storage/session identity
+- environment variables
+- API endpoints
+- package versions
+- dependencies unless absolutely required for the UI build
+- existing component behavior
+
+The only goal is to fix the visual layout, CSS, responsiveness and UI consistency.
+
+==================================================
+FIRST: INSPECT THE EXISTING PROJECT
+==================================================
+
+Before modifying anything:
+
+1. Read the entire existing client/src structure.
+2. Read RoomPage.tsx completely.
+3. Read room-final.css completely.
+4. Read index.css completely.
+5. Read experience.css completely.
+6. Inspect VideoPlayer.
+7. Inspect PlaybackControls.
+8. Inspect ParticipantList.
+9. Inspect ChatPanel.
+10. Inspect RoomHeader.
+11. Inspect the application's global layout/root styles.
+12. Run the application in Replit preview.
+13. Actually inspect the rendered room page at desktop and mobile widths.
+
+Do NOT make assumptions based only on the CSS.
+
+Understand the DOM structure first.
+
+==================================================
+CURRENT MAIN PROBLEM
+==================================================
+
+The Room page currently has serious layout inconsistencies.
+
+The most important problem is the vertical page layout.
+
+The room page currently shows an unnecessary large empty area below the "Current video / Change Video" section.
+
+The page should NOT create artificial blank space at the bottom.
+
+The room should end naturally immediately after the final content.
+
+There must NOT be:
+
+- artificial min-height creating empty space
+- unnecessary viewport-height containers
+- extra bottom padding
+- extra bottom margin
+- hidden elements contributing height
+- invisible flex children contributing height
+- sticky elements creating unexpected document height
+- overflow hacks
+- nested scrolling containers causing layout problems
+- scrollbars appearing because of incorrect height calculations
+
+Fix the root cause rather than adding another CSS patch.
+
+==================================================
+ROOM PAGE DESIRED STRUCTURE
+==================================================
+
+Desktop layout should be:
+
+------------------------------------------------
+HEADER
+------------------------------------------------
+
+MAIN ROOM CONTENT
+
+LEFT COLUMN
+-----------------------------
+YouTube player
+Playback controls
+Current video / Change Video
+-----------------------------
+
+RIGHT COLUMN
+-----------------------------
+Participants
+Chat
+-----------------------------
+
+The bottom of the page should end naturally after the actual content.
+
+There should be NO huge blank area underneath.
+
+==================================================
+VIDEO PLAYER
+==================================================
+
+The YouTube player must remain fully functional.
+
+Do NOT replace the YouTube player.
+
+Do NOT modify the YouTube API integration.
+
+Do NOT modify playback synchronization.
+
+Do NOT modify the iframe communication.
+
+Do NOT modify socket events.
+
+Only improve its surrounding layout and styling.
+
+The video should:
+
+- maintain a proper 16:9 ratio
+- fit cleanly inside its container
+- have consistent rounded corners
+- not overflow
+- not create unexpected page height
+- remain responsive
+- remain visually aligned with the right sidebar
+
+==================================================
+CUSTOM PLAYBACK CONTROLS
+==================================================
+
+Keep the existing custom playback controls.
+
+Do NOT remove them.
+
+Do NOT modify their functional event handlers.
+
+Improve only:
+
+- spacing
+- alignment
+- typography
+- slider appearance
+- button appearance
+- hover states
+- active states
+- responsive behavior
+
+The custom seek bar must visually align with the player.
+
+Do not introduce JavaScript changes unless absolutely necessary for a purely visual bug.
+
+==================================================
+SIDEBAR
+==================================================
+
+The Participants and Live Chat sections must form one visually consistent sidebar.
+
+Desktop:
+
+LEFT                         RIGHT
+------------------------     ----------------
+Video                        Participants
+Playback controls            Chat
+Change video                 ----------------
+------------------------
+
+The sidebar should stay visually aligned with the top of the player.
+
+Scrolling the page must NOT cause weird independent movement between:
+
+- player
+- participants
+- chat
+- playback controls
+- change-video section
+
+Do not use problematic nested scrolling unless genuinely necessary.
+
+Avoid:
+
+position: fixed
+
+for the main sidebar.
+
+Use normal document flow unless there is a very strong reason otherwise.
+
+If sticky positioning is used, make sure it does not alter page height or create blank space.
+
+==================================================
+SCROLLING
+==================================================
+
+There should be ONE normal browser page scroll.
+
+Do NOT create:
+
+- nested page scrollbars
+- unnecessary overflow:auto containers
+- hidden document overflow
+- JavaScript scroll locking
+- scroll restoration hacks
+- forced scroll positions
+
+Remove any previous experimental CSS/JS that was added only to fight the scrolling issue.
+
+The user must be able to:
+
+- scroll from the top of the room
+- see the header
+- see the video
+- see playback controls
+- see change-video controls
+- reach the natural bottom of the page
+
+The document must end at the actual content.
+
+==================================================
+HEADER
+==================================================
+
+Keep the existing header functionality.
+
+Improve its visual design:
+
+- premium typography
+- clear hierarchy
+- better spacing
+- subtle borders
+- elegant dark surface
+- room name
+- room code
+- live status
+- invite button
+- user information
+- leave button
+
+Do not change button behavior.
+
+==================================================
+VISUAL DESIGN
+==================================================
+
+Redesign the UI so it feels like a polished production application.
+
+IMPORTANT:
+
+DO NOT make it look like generic AI-generated SaaS UI.
+
+Avoid:
+
+- excessive gradients
+- excessive glassmorphism
+- huge glowing blobs
+- excessive rounded cards
+- random floating decorations
+- meaningless emoji everywhere
+- excessive shadows
+- neon cyberpunk styling
+- repetitive pill components
+- giant headings
+- generic "AI dashboard" aesthetics
+- excessive animations
+
+Instead create a mature, modern watch-party product.
+
+Think:
+
+Netflix + Discord + modern media application.
+
+Use a restrained dark cinematic interface.
+
+Suggested visual direction:
+
+Background:
+deep charcoal / near-black
+
+Surfaces:
+slightly lighter charcoal
+
+Accent:
+warm red / crimson
+
+Secondary accent:
+subtle purple or muted violet if useful
+
+Success:
+soft green
+
+Text:
+off-white
+
+Secondary text:
+muted gray
+
+Borders:
+very subtle gray
+
+==================================================
+TYPOGRAPHY
+==================================================
+
+Improve typography throughout the application.
+
+Use a sophisticated font system.
+
+Prefer something like:
+
+- Inter
+- Geist
+- DM Sans
+- Manrope
+- Space Grotesk
+
+But do not use many different fonts.
+
+Use:
+
+1 primary UI font
+1 optional display font
+
+Create a clear hierarchy:
+
+page titles
+section titles
+room metadata
+body text
+labels
+helper text
+buttons
+
+Typography should feel intentional and premium.
+
+==================================================
+CARDS AND COMPONENTS
+==================================================
+
+Improve:
+
+- Participant card
+- Participant rows
+- Chat messages
+- Chat input
+- Playback controls
+- Video change form
+- Header controls
+- Buttons
+- Inputs
+- Error messages
+- Loading state
+- Empty chat state
+
+Cards should have:
+
+- consistent radius
+- subtle border
+- consistent padding
+- proper hierarchy
+- consistent spacing
+
+Do not make every element look like a giant floating card.
+
+==================================================
+PARTICIPANTS
+==================================================
+
+Participants should be easy to scan.
+
+Each participant row should clearly show:
+
+avatar
+username
+current user indicator
+host badge
+participant badge
+management actions when authorized
+
+Host should be visually distinguishable without being visually overwhelming.
+
+Actions should appear cleanly aligned.
+
+Do not change participant functionality.
+
+==================================================
+CHAT
+==================================================
+
+Make chat feel like a real modern chat panel.
+
+Improve:
+
+- message spacing
+- username hierarchy
+- timestamps
+- empty state
+- input
+- send button
+- scrolling area
+
+The chat input should remain at the bottom of the chat panel.
+
+Do not break message sending.
+
+==================================================
+CHANGE VIDEO
+==================================================
+
+Keep the existing:
+
+"Current video"
+
+input
+
+"Change Video"
+
+button
+
+Improve the UI significantly.
+
+It should visually belong to the player controls rather than appearing as an unrelated form.
+
+Do not change the change-video functionality.
+
+==================================================
+RESPONSIVE DESIGN
+==================================================
+
+The application must work properly at:
+
+1440px
+1280px
+1024px
+900px
+768px
+600px
+480px
+375px
+
+Desktop:
+
+two-column layout.
+
+Tablet:
+
+adapt column widths gracefully.
+
+Mobile:
+
+single-column layout.
+
+The sidebar should move below the video naturally.
+
+No horizontal overflow.
+
+No broken fixed widths.
+
+No accidental page height.
+
+==================================================
+CSS ARCHITECTURE
+==================================================
+
+IMPORTANT:
+
+There are currently multiple CSS files that may contain conflicting room styles.
+
+Do NOT simply keep adding overrides at the bottom.
+
+First identify conflicting rules.
+
+Then consolidate the room layout into a clean predictable structure.
+
+Remove obsolete room-specific CSS.
+
+Avoid:
+
+!important
+
+unless absolutely necessary.
+
+Avoid contradictory rules such as:
+
+min-height: 100vh
+
+combined with
+
+height: auto
+
+combined with
+
+overflow hacks
+
+combined with
+
+sticky/fixed positioning.
+
+Do not solve one CSS issue by creating another.
+
+The final CSS should be understandable to a human developer.
+
+==================================================
+NO FUNCTIONAL REWRITE
+==================================================
+
+Do not rewrite React components unnecessarily.
+
+Prefer CSS changes.
+
+Only modify JSX when necessary to:
+
+- add a semantic wrapper
+- improve layout structure
+- add a className
+- improve accessibility
+
+Do not change state management.
+
+Do not change socket hooks.
+
+Do not change API calls.
+
+Do not change event handlers.
+
+Do not change backend code.
+
+==================================================
+REMOVE PREVIOUS CSS EXPERIMENTS
+==================================================
+
+There have been multiple previous attempts to fix the room page.
+
+Treat those attempts as potentially conflicting.
+
+Look for things such as:
+
+- forced min-height
+- viewport height calculations
+- scroll restoration
+- overflow hacks
+- sticky sidebar hacks
+- fixed positioning
+- artificial bottom spacing
+- arbitrary negative margins
+- excessive absolute positioning
+- fullscreen blockers
+- unnecessary wrapper heights
+
+Determine which ones are actually required.
+
+Remove the unnecessary ones.
+
+Do NOT blindly preserve previous fixes.
+
+==================================================
+TESTING REQUIREMENT
+==================================================
+
+After making changes:
+
+1. Run the application.
+2. Open the room page.
+3. Create/join a room.
+4. Verify the YouTube video loads.
+5. Verify play/pause still works.
+6. Verify seeking still works.
+7. Verify synchronized playback still works.
+8. Verify change video still works.
+9. Verify participants still appear.
+10. Verify chat still works.
+11. Verify invite still works.
+12. Verify leave still works.
+13. Scroll from top to bottom.
+14. Confirm there is NO artificial empty space at the bottom.
+15. Confirm the page scrolls normally.
+16. Confirm there is only the expected browser scrollbar.
+17. Test desktop width.
+18. Test tablet width.
+19. Test mobile width.
+
+If a visual change breaks functionality, revert that functional change and solve the problem through CSS/layout instead.
+
+==================================================
+FINAL QUALITY BAR
+==================================================
+
+The final result should look like a real production watch-party application designed by an experienced frontend engineer.
+
+It should feel:
+
+- cinematic
+- calm
+- premium
+- modern
+- readable
+- spacious
+- polished
+- consistent
+- responsive
+
+NOT:
+
+- AI-generated
+- template-like
+- over-designed
+- neon
+- cluttered
+- overly rounded
+- gradient-heavy
+- visually noisy
+
+Most importantly:
+
+DO NOT CHANGE THE APPLICATION'S EXISTING WORKFLOW OR FUNCTIONALITY.
+
+ONLY FIX THE CSS/LAYOUT/UI AND MAKE THE ENTIRE PRODUCT VISUALLY CONSISTENT.
+
+Before finishing, inspect the actual rendered page in Replit Preview and fix any remaining visual inconsistencies you can see.
