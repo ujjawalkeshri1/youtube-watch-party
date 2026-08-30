@@ -143,7 +143,14 @@ export function VideoPlayer({ videoId, isPlaying, currentTime, canControl, onPla
     syncAnchorRef.current = { time: currentTime, at: performance.now() };
     const timer = window.setTimeout(() => { applyingRemoteRef.current = false; }, 700);
     return () => window.clearTimeout(timer);
-  }, [videoId, playerReady, currentTime]);
+  }, [videoId, playerReady]);
+
+  // Every authoritative room timestamp becomes a new synchronization anchor.
+  // We do not seek on every timestamp update while playing; the local player
+  // is allowed to advance naturally between corrections.
+  useEffect(() => {
+    syncAnchorRef.current = { time: currentTime, at: performance.now() };
+  }, [currentTime]);
 
   // The server's currentTime is the position at the moment of the last
   // playback command. While playing, time naturally advances on the client;
@@ -191,8 +198,8 @@ export function VideoPlayer({ videoId, isPlaying, currentTime, canControl, onPla
     return () => window.clearInterval(interval);
   }, [playerReady]);
 
-  // For participants, keep the player aligned to the moving server timeline
-  // without seeking back to the original command timestamp every 1/4 second.
+  // Participants follow a moving timeline. This avoids the old bug where a
+  // participant was repeatedly seeking to the original play timestamp.
   useEffect(() => {
     if (!playerReady || !playerRef.current || canControl) return;
     const interval = window.setInterval(() => {
