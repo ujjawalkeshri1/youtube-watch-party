@@ -1,4 +1,4 @@
-import { Play, Pause, SkipBack, SkipForward, AlertCircle } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward } from 'lucide-react';
 
 interface PlaybackControlsProps {
   isPlaying: boolean;
@@ -10,15 +10,7 @@ interface PlaybackControlsProps {
   canControl: boolean;
 }
 
-export function PlaybackControls({
-  isPlaying,
-  currentTime,
-  duration,
-  onPlay,
-  onPause,
-  onSeek,
-  canControl,
-}: PlaybackControlsProps) {
+export function PlaybackControls({ isPlaying, currentTime, duration, onPlay, onPause, onSeek, canControl }: PlaybackControlsProps) {
   const formatTime = (seconds: number) => {
     if (!isFinite(seconds) || seconds < 0) return '0:00';
     const mins = Math.floor(seconds / 60);
@@ -28,13 +20,6 @@ export function PlaybackControls({
 
   return (
     <div className="playback-controls">
-      {!canControl && (
-        <div className="control-notice">
-          <AlertCircle size={14} />
-          <span>Only the host and moderators can control playback</span>
-        </div>
-      )}
-
       <div className="progress-bar-container">
         <input
           type="range"
@@ -45,6 +30,7 @@ export function PlaybackControls({
           onChange={(event) => onSeek?.(parseFloat(event.target.value))}
           disabled={!canControl || duration <= 0}
           className="progress-bar"
+          aria-label="Playback position"
         />
       </div>
 
@@ -55,13 +41,7 @@ export function PlaybackControls({
       </div>
 
       <div className="controls-row">
-        <button
-          type="button"
-          onClick={() => onSeek?.(Math.max(0, currentTime - 10))}
-          disabled={!canControl}
-          title="Back 10s"
-          className="control-btn"
-        >
+        <button type="button" onClick={() => onSeek?.(Math.max(0, currentTime - 10))} disabled={!canControl} title="Back 10 seconds" className="control-btn">
           <SkipBack size={20} />
         </button>
 
@@ -75,13 +55,7 @@ export function PlaybackControls({
           </button>
         )}
 
-        <button
-          type="button"
-          onClick={() => onSeek?.(duration > 0 ? Math.min(duration, currentTime + 10) : currentTime + 10)}
-          disabled={!canControl}
-          title="Forward 10s"
-          className="control-btn"
-        >
+        <button type="button" onClick={() => onSeek?.(duration > 0 ? Math.min(duration, currentTime + 10) : currentTime + 10)} disabled={!canControl} title="Forward 10 seconds" className="control-btn">
           <SkipForward size={20} />
         </button>
       </div>
