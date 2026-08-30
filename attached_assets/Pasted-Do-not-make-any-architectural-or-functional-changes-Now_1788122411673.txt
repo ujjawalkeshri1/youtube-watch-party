@@ -1,0 +1,69 @@
+Do not make any architectural or functional changes.
+
+Now I need you to specifically validate the ACTUAL room page.
+
+Use the existing application exactly as implemented and create/use a legitimate test room through the normal existing workflow if possible.
+
+Open the actual /room/:code route in the Replit Preview.
+
+Then inspect the rendered room page at:
+
+1440px desktop
+1280px desktop
+1024px
+768px
+600px
+480px
+
+Specifically verify:
+
+1. The entire room header is visible.
+2. The YouTube player is completely visible.
+3. Playback controls are directly below the player.
+4. Current video / Change Video is directly below playback controls.
+5. Participants stays aligned with the player/sidebar.
+6. Chat stays aligned with the sidebar.
+7. Scrolling the browser does not cause the sidebar to jump independently.
+8. There is only normal browser page scrolling.
+9. There is NO large blank area below Change Video.
+10. The document ends naturally after the actual room content.
+11. There is no artificial 100vh/min-height creating extra document height.
+12. There is no horizontal overflow.
+13. The top of the room remains reachable by normal scrolling.
+14. The YouTube player keeps its 16:9 ratio.
+15. The custom playback controls remain visually aligned.
+16. The chat composer remains at the bottom of the chat panel.
+17. Participants and chat do not create unexpected page height.
+
+IMPORTANT:
+
+Do not simply inspect CSS.
+
+Inspect the ACTUAL rendered DOM and computed layout in the browser preview.
+
+If you find any remaining layout problem, fix ONLY the CSS/layout.
+
+Do not change:
+- React state
+- socket events
+- APIs
+- backend
+- Prisma
+- PostgreSQL
+- authentication
+- authorization
+- YouTube integration
+- playback synchronization
+- chat functionality
+- participant functionality
+- routing
+
+After fixing, run:
+
+npm run build
+
+for the client and server and verify that both pass.
+
+Also run git diff --check.
+
+Do not stop at saying the CSS looks correct. Verify the actual rendered room page.
