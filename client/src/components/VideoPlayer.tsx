@@ -42,6 +42,7 @@ export function VideoPlayer({ videoId, isPlaying, currentTime, canControl, onPla
   const onDurationRef = useRef(onDuration);
   const onErrorRef = useRef(onError);
   const lastEmittedSeekRef = useRef(0);
+  const syncAnchorRef = useRef({ time: 0, at: 0 });
 
   canControlRef.current = canControl;
   onPlayRef.current = onPlay;
@@ -77,8 +78,6 @@ export function VideoPlayer({ videoId, isPlaying, currentTime, canControl, onPla
           videoId,
           playerVars: {
             autoplay: 0,
-            // The host is the ONLY person who receives YouTube playback controls.
-            // Participants get a completely non-interactive player surface.
             controls: canControlRef.current ? 1 : 0,
             disablekb: canControlRef.current ? 0 : 1,
             rel: 0,
@@ -93,13 +92,10 @@ export function VideoPlayer({ videoId, isPlaying, currentTime, canControl, onPla
               setPlayerReady(true);
               setLoading(false);
               setError(null);
-              playerRef.current.cueVideoById(videoId);
               const duration = playerRef.current.getDuration?.() || 0;
               if (duration) onDurationRef.current?.(duration);
             },
             onStateChange: (event: { data: number }) => {
-              // ONLY a host-originated native YouTube action can become a
-              // playback command. Participant state changes are never emitted.
               if (destroyed || applyingRemoteRef.current || !canControlRef.current) return;
               const player = playerRef.current;
               if (!player) return;
@@ -144,41 +140,34 @@ export function VideoPlayer({ videoId, isPlaying, currentTime, canControl, onPla
     applyingRemoteRef.current = true;
     setError(null);
     playerRef.current.cueVideoById(videoId);
-    const timer = window.setTimeout(() => { applyingRemoteRef.current = false; }, 500);
+    syncAnchorRef.current = { time: currentTime, at: performance.now() };
+    const timer = window.setTimeout(() => { applyingRemoteRef.current = false; }, 700);
     return () => window.clearTimeout(timer);
-  }, [videoId, playerReady]);
+  }, [videoId, playerReady, currentTime]);
 
-  // The server room state is authoritative. This effect is deliberately
-  // unconditional for participants: when the room says PAUSED we call
-  // pauseVideo() even if YouTube reports BUFFERING/CUED instead of PLAYING.
+  // The server's currentTime is the position at the moment of the last
+  // playback command. While playing, time naturally advances on the client;
+  // it must NOT be treated as a fixed timestamp or the player will jump back
+  // every few seconds. We anchor the server time once and only correct drift.
   useEffect(() => {
     if (!playerReady || !playerRef.current) return;
     const player = playerRef.current;
     applyingRemoteRef.current = true;
+    syncAnchorRef.current = { time: currentTime, at: performance.now() };
 
-    const enforceRoomState = () => {
-      if (!playerRef.current) return;
-      const state = playerRef.current.getPlayerState?.();
-      if (isPlaying) {
-        if (state !== YT_PLAYER_STATE.PLAYING) playerRef.current.playVideo?.();
-      } else {
-        playerRef.current.pauseVideo?.();
-      }
+    if (isPlaying) player.playVideo?.();
+    else player.pauseVideo?.();
 
-      const playerTime = playerRef.current.getCurrentTime?.() || 0;
-      if (Math.abs(playerTime - currentTime) > 1.25) {
-        playerRef.current.seekTo?.(Math.max(0, currentTime), true);
-      }
-    };
+    const playerTime = player.getCurrentTime?.() || 0;
+    if (!isPlaying && Math.abs(playerTime - currentTime) > 0.75) {
+      player.seekTo?.(Math.max(0, currentTime), true);
+    } else if (isPlaying && Math.abs(playerTime - currentTime) > 1.5) {
+      player.seekTo?.(Math.max(0, currentTime), true);
+    }
 
-    enforceRoomState();
-    const interval = window.setInterval(enforceRoomState, canControlRef.current ? 1000 : 250);
-    const timer = window.setTimeout(() => { applyingRemoteRef.current = false; }, 300);
-    return () => {
-      window.clearInterval(interval);
-      window.clearTimeout(timer);
-    };
-  }, [isPlaying, currentTime, playerReady, videoId]);
+    const timer = window.setTimeout(() => { applyingRemoteRef.current = false; }, 350);
+    return () => window.clearTimeout(timer);
+  }, [isPlaying, playerReady, videoId]);
 
   useEffect(() => {
     if (!playerReady || !playerRef.current) return;
@@ -201,6 +190,29 @@ export function VideoPlayer({ videoId, isPlaying, currentTime, canControl, onPla
     }, 500);
     return () => window.clearInterval(interval);
   }, [playerReady]);
+
+  // For participants, keep the player aligned to the moving server timeline
+  // without seeking back to the original command timestamp every 1/4 second.
+  useEffect(() => {
+    if (!playerReady || !playerRef.current || canControl) return;
+    const interval = window.setInterval(() => {
+      const player = playerRef.current;
+      if (!player) return;
+      const expected = isPlaying
+        ? syncAnchorRef.current.time + (performance.now() - syncAnchorRef.current.at) / 1000
+        : currentTime;
+      const actual = player.getCurrentTime?.() || 0;
+      const drift = Math.abs(actual - expected);
+      if (isPlaying) {
+        if (player.getPlayerState?.() !== YT_PLAYER_STATE.PLAYING) player.playVideo?.();
+        if (drift > 2.5) player.seekTo?.(Math.max(0, expected), true);
+      } else {
+        if (player.getPlayerState?.() === YT_PLAYER_STATE.PLAYING) player.pauseVideo?.();
+        if (drift > 0.75) player.seekTo?.(Math.max(0, currentTime), true);
+      }
+    }, 1000);
+    return () => window.clearInterval(interval);
+  }, [canControl, currentTime, isPlaying, playerReady, videoId]);
 
   return (
     <div className={`video-container ${canControl ? 'video-host' : 'video-participant'}`}>
