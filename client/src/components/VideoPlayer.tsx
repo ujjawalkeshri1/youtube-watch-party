@@ -68,6 +68,7 @@ export function VideoPlayer({ videoId, isPlaying, currentTime, canControl, onPla
             autoplay: 0,
             controls: canControlRef.current ? 1 : 0,
             disablekb: canControlRef.current ? 0 : 1,
+            fs: 0,
             rel: 0,
             playsinline: 1,
             enablejsapi: 1,
@@ -168,10 +169,10 @@ export function VideoPlayer({ videoId, isPlaying, currentTime, canControl, onPla
       onTimeUpdateRef.current?.(time);
       if (duration) onDurationRef.current?.(duration);
 
-      const jumped = Math.abs(time - previousTime) > 2;
+      const jumped = Math.abs(time - previousTime) > 1.25;
       previousTime = time;
       if (!canControlRef.current || applyingRemoteRef.current || !jumped) return;
-      if (Math.abs(time - lastEmittedSeekRef.current) > 1) {
+      if (Math.abs(time - lastEmittedSeekRef.current) > 0.5) {
         lastEmittedSeekRef.current = time;
         onSeekRef.current?.(time);
       }
@@ -179,6 +180,7 @@ export function VideoPlayer({ videoId, isPlaying, currentTime, canControl, onPla
     return () => window.clearInterval(interval);
   }, [playerReady]);
 
+  /* Participants follow the server's moving playback clock and cannot issue player commands. */
   useEffect(() => {
     if (!playerReady || !playerRef.current || canControl) return;
     const interval = window.setInterval(() => {
@@ -205,6 +207,7 @@ export function VideoPlayer({ videoId, isPlaying, currentTime, canControl, onPla
       {loading && <div className="video-loading"><div className="spinner" /><span>Loading YouTube video…</span></div>}
       {error && <div className="video-error" role="alert"><strong>Video unavailable</strong><span>{error}</span><a href={`https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`} target="_blank" rel="noreferrer">Open on YouTube</a></div>}
       <div ref={containerRef} className="youtube-frame" style={{ width: '100%', height: '100%', display: 'block' }} />
+      {!canControl && <div className="participant-interaction-shield" aria-hidden="true" />}
     </div>
   );
 }
